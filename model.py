@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 from torchvision.models import vgg16
+from scipy.interpolate import interp2d # TODO: add scipy to environment.yml
 
 class P2M(nn.Module):
     def __init__(self):
@@ -26,26 +27,39 @@ class P2M(nn.Module):
         self.vgg16_conv4_3_layer.register_forward_hook(conv4_3_hook)
         self.vgg16_conv5_3_layer.register_forward_hook(conv5_3_hook)
 
-        # TODO: implement G-ResNet
-        self.g_resnet1 = None
-        self.g_resnet2 = None
-        self.g_resnet3 = None
+        def create_g_resnet():
+            raise NotImplementedError()
 
-    # @return 2d coordinates
+        self.g_resnet1 = create_g_resnet()
+        self.g_resnet2 = create_g_resnet()
+        self.g_resnet3 = create_g_resnet()
+
+    # @return 2d coordinates, scale [0, 1]
     def project_2d(self, coordinates, vgg16_features, camera):
         raise NotImplementedError()
 
-    def bilinear_interpolation(self, coordinates_2d, vgg16_features):
-        raise NotImplementedError()
+    def pool_features(self, coordinates_2d, vgg16_features):
+        def bilinear_interpolation(coordinates_2d, vgg16_feature):
+            # Get dimension of vgg16 feature
+            dimension = vgg16_feature.shape[0]
+            # Rescale coordinate with the dimension
+            coordinates_2d = coordinates_2d * dimension
+            # Call interp2d, TODO: make shape consistent
+            return interp2d(coordinates_2d[0], coordinates_2d[1], vgg16_feature)
+            
+        return [
+            bilinear_interpolation(coordinates_2d, vgg16_features[0]),
+            bilinear_interpolation(coordinates_2d, vgg16_features[1]),
+            bilinear_interpolation(coordinates_2d, vgg16_features[2]),
+        ]
 
     def pool_perception_feature(self, mesh, vgg16_features, camera):
         coordinates, feature = mesh
         coordinates_2d = self.project_2d(coordinates, vgg16_features, camera)
-        perception_features = self.bilinear_interpolation(coordinates_2d, vgg16_features)
+        perception_features = self.pool_features(coordinates_2d, vgg16_features)
 
         # TODO: concat three perception features
-        return None
-
+        return perception_features
 
     def generate_initial_mesh(self):
         raise NotImplementedError()
@@ -53,7 +67,6 @@ class P2M(nn.Module):
     def unpool_graph(self, graph):
         raise NotImplementedError()
 
-    # TODO: Add more necessary parameters
     def deform_mesh(self, mesh, vgg16_features, camera, g_resnet):
         coordinates, feature = mesh
         perception_feature = self.pool_perception_feature(mesh, vgg16_features, camera)
@@ -67,7 +80,6 @@ class P2M(nn.Module):
     # @param image - 137x137 image
     # @param camera - camera intrinsic and extrinsic matrices
     def forward(self, image, camera):
-        # TODO: Feed image into vgg16
         self.vgg16(image)
 
         vgg16_features = [
