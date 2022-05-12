@@ -28,8 +28,8 @@ def train(dataloader, model, loss_function, optimizer):
             print(f"loss: {loss:>7f}  [{current:>5d}/{size:>5d}]")
 
 # TODO: replace with command line parameters
-meta_file_path = "../Pixel2Mesh/datasets/data/shapenet/meta/train_tf.txt"
-data_base_path = "../Pixel2Mesh/datasets/data/shapenet/data_tf"
+meta_file_path = "../Pixel2Mesh-reference/datasets/data/shapenet/meta/train_tf.txt"
+data_base_path = "../Pixel2Mesh-reference/datasets/data/shapenet/data_tf"
 camera_c = (112.0, 112.0)
 camera_f = (250.0, 250.0)
 
