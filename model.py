@@ -36,7 +36,7 @@ class P2M(nn.Module):
         self.g_resnet3 = create_g_resnet()
 
     # @return 2d coordinates, scale [0, 1]
-    def project_2d(self, coordinates, vgg16_features, camera):
+    def project_2d(self, coordinates, vgg16_features, camera_c, camera_f):
         raise NotImplementedError()
 
     def pool_features(self, coordinates_2d, vgg16_features):
@@ -54,23 +54,24 @@ class P2M(nn.Module):
             bilinear_interpolation(coordinates_2d, vgg16_features[2]),
         ]
 
-    def pool_perception_feature(self, mesh, vgg16_features, camera):
+    def pool_perception_feature(self, mesh, vgg16_features, camera_c, camera_f):
         coordinates, feature = mesh
-        coordinates_2d = self.project_2d(coordinates, vgg16_features, camera)
+        coordinates_2d = self.project_2d(coordinates, vgg16_features, camera_c, camera_f)
         perception_features = self.pool_features(coordinates_2d, vgg16_features)
 
         # TODO: concat three perception features
         return perception_features
 
     def generate_initial_mesh(self):
-        raise NotImplementedError()
+        # TODO: implement
+        return None
 
     def unpool_graph(self, graph):
         raise NotImplementedError()
 
-    def deform_mesh(self, mesh, vgg16_features, camera, g_resnet):
-        coordinates, feature = mesh
-        perception_feature = self.pool_perception_feature(mesh, vgg16_features, camera)
+    def deform_mesh(self, mesh, vgg16_features, camera_c, camera_f, g_resnet):
+        # coordinates, feature = mesh
+        perception_feature = self.pool_perception_feature(mesh, vgg16_features, camera_c, camera_f)
 
         # TODO: concat perception_feature with feature
         feature_input = None
@@ -91,12 +92,12 @@ class P2M(nn.Module):
 
         mesh = self.generate_initial_mesh()
 
-        mesh = self.deform_mesh(mesh, vgg16_features, camera, self.g_resnet1)
+        mesh = self.deform_mesh(mesh, vgg16_features, camera_c, camera_f, self.g_resnet1)
         mesh = self.unpool_graph(mesh)
 
-        mesh = self.deform_mesh(mesh, vgg16_features, camera, self.g_resnet2)
+        mesh = self.deform_mesh(mesh, vgg16_features, camera_c, camera_f, self.g_resnet2)
         mesh = self.unpool_graph(mesh)
 
-        mesh = self.deform_mesh(mesh, vgg16_features, camera, self.g_resnet3)
+        mesh = self.deform_mesh(mesh, vgg16_features, camera_c, camera_f, self.g_resnet3)
 
         return mesh
