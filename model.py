@@ -28,7 +28,8 @@ class P2M(nn.Module):
         self.vgg16_conv5_3_layer.register_forward_hook(conv5_3_hook)
 
         def create_g_resnet():
-            raise NotImplementedError()
+            # TODO: implement G-ResNet
+            return nn.Identity()
 
         self.g_resnet1 = create_g_resnet()
         self.g_resnet2 = create_g_resnet()
@@ -79,7 +80,7 @@ class P2M(nn.Module):
 
     # @param image - 137x137 image
     # @param camera - camera intrinsic and extrinsic matrices
-    def forward(self, image, camera):
+    def forward(self, image, camera_c, camera_f):
         self.vgg16(image)
 
         vgg16_features = [
