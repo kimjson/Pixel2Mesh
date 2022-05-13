@@ -16,8 +16,8 @@ class ShapeNet(Dataset):
                 self.dat_file_paths[i] = os.path.join(data_base_path, path_without_prefix)
                 self.png_file_paths[i] = self.dat_file_paths[i].replace(".dat", ".png")
 
-        self.camera_c = torch.tensor(camera_c)
-        self.camera_f = torch.tensor(camera_f)
+        self.camera_c = camera_c
+        self.camera_f = camera_f
         self.transform = transform
                 
 
@@ -36,4 +36,4 @@ class ShapeNet(Dataset):
             points = torch.tensor(dat[:, :3])
             surface_normals = torch.tensor(dat[:, 3:])
 
-        return image, points, surface_normals, self.camera_c, self.camera_f
+        return image, points, surface_normals

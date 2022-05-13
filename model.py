@@ -2,10 +2,14 @@ import torch
 import torch.nn as nn
 from torchvision.models import vgg16
 from scipy.interpolate import interp2d # TODO: add scipy to environment.yml
+from pytorch3d.io.ply_io import load_ply
+from pytorch3d.structures import Meshes
 
 class P2M(nn.Module):
-    def __init__(self):
+    def __init__(self, ellipsoid_path):
         super().__init__()
+
+        self.ellipsoid_path = ellipsoid_path
 
         self.vgg16 = vgg16(pretrained=True)
         self.vgg16.eval()
@@ -35,9 +39,39 @@ class P2M(nn.Module):
         self.g_resnet2 = create_g_resnet()
         self.g_resnet3 = create_g_resnet()
 
-    # @return 2d coordinates, scale [0, 1]
-    def project_2d(self, coordinates, vgg16_features, camera_c, camera_f):
-        raise NotImplementedError()
+    # @return pixel coordinates in 224x224 input image
+    # TODO: add image or image dimension in parameter
+    def image_project(self, coordinates, vgg16_features, camera_c, camera_f):
+        projection_matrix = torch.mm(
+            torch.tensor([
+                [camera_f[0], 0, camera_c[0]],
+                [0, camera_f[1], camera_c[1]],
+                [0, 0, 1],
+            ]),
+            torch.tensor([
+                [1, 0, 0, 0],
+                [0, 1, 0, 0],
+                [0, 0, 1, 0.8],
+            ])
+        )
+        projection_matrix = projection_matrix.repeat(coordinates.shape[0], 1, 1)
+
+        coordinates = torch.concat([
+            coordinates,
+            torch.ones(coordinates.shape[0], 1)
+        ], 1)
+        coordinates = torch.reshape(coordinates, (coordinates.shape[0], coordinates.shape[1], 1))
+
+        pixel_coordinates = torch.bmm(projection_matrix, coordinates)
+        pixel_coordinates = torch.reshape(pixel_coordinates, (pixel_coordinates.shape[0], pixel_coordinates.shape[1]))
+
+        s_values = torch.reshape(pixel_coordinates[:, 2], (pixel_coordinates.shape[0], 1)).repeat(1, 3)
+
+        pixel_coordinates = pixel_coordinates / s_values
+
+        pixel_coordinates = pixel_coordinates[:, :-1]
+
+        return pixel_coordinates
 
     def pool_features(self, coordinates_2d, vgg16_features):
         def bilinear_interpolation(coordinates_2d, vgg16_feature):
@@ -55,16 +89,17 @@ class P2M(nn.Module):
         ]
 
     def pool_perception_feature(self, mesh, vgg16_features, camera_c, camera_f):
-        coordinates, feature = mesh
-        coordinates_2d = self.project_2d(coordinates, vgg16_features, camera_c, camera_f)
-        perception_features = self.pool_features(coordinates_2d, vgg16_features)
+        coordinates = mesh.verts_list()[0]
+        pixel_coordinates = self.image_project(coordinates, vgg16_features, camera_c, camera_f)
+        perception_features = self.pool_features(pixel_coordinates, vgg16_features)
 
         # TODO: concat three perception features
         return perception_features
 
     def generate_initial_mesh(self):
         # TODO: implement
-        return None
+        vertices, faces = load_ply(self.ellipsoid_path)
+        return Meshes(verts=[vertices], faces=[faces])
 
     def unpool_graph(self, graph):
         raise NotImplementedError()
