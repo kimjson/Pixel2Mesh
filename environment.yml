@@ -1,10 +1,14 @@
-name: p2m
+name: pytorch3d
 channels:
   - defaults
 dependencies:
   - python=3.9
-  - torchaudio
-  - torchvision
-  - pytorch
+  - torchvision==0.11.2
+  - pytorch==1.10.1
   - cudatoolkit=11.3
-prefix: /root/miniconda3/envs/p2m
+  - iopath
+  - fvcore
+  - nvidiacub
+  - pytorch3d
+  - scipy
+prefix: /root/miniconda3/envs/pytorch3d
