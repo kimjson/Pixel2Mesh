@@ -112,27 +112,27 @@ class P2M(nn.Module):
         pixel_coordinates = self.image_project(coordinates, vgg16_features, camera_c, camera_f)
         perception_features = self.pool_features(pixel_coordinates, vgg16_features, image_size)
 
-        return torch.concat(perception_features, 1)
+        result = torch.concat(perception_features, 1)
+        result = torch.reshape(result, result.shape[:2])
+
+        return result
 
     def generate_initial_mesh(self):
         vertices, faces = load_ply(self.ellipsoid_path)
         return Meshes(verts=[vertices], faces=[faces]).cuda()
 
-    def unpool_graph(self, graph):
+    def unpool_graph(self, graph, shape_features):
         raise NotImplementedError()
 
-    def deform_mesh(self, mesh, vgg16_features, camera_c, camera_f, g_resnet, image_size):
+    def deform_mesh(self, mesh, shape_features, vgg16_features, camera_c, camera_f, g_resnet, image_size):
         # coordinates, feature = mesh
         perception_feature = self.pool_perception_feature(mesh, vgg16_features, camera_c, camera_f, image_size)
 
-        # TODO: concat perception_feature with feature
-        feature_input = None
+        features = torch.concat([perception_feature, shape_features], 1)
         
         # TODO: add another branch to calculate new coordinates
-        return g_resnet(feature_input)
+        return mesh, g_resnet(features)
 
-    # @param image - 137x137 image
-    # @param camera - camera intrinsic and extrinsic matrices
     def forward(self, image, camera_c, camera_f):
         _, __, image_size, ___ = image.shape
         self.vgg16(image)
@@ -145,12 +145,15 @@ class P2M(nn.Module):
 
         mesh = self.generate_initial_mesh()
 
-        mesh = self.deform_mesh(mesh, vgg16_features, camera_c, camera_f, self.g_resnet1, image_size)
-        mesh = self.unpool_graph(mesh)
+        # Intial shape features are just coordinates (dimension 3)
+        shape_features = mesh.verts_list()[0]
+        
+        mesh, shape_features = self.deform_mesh(mesh, shape_features, vgg16_features, camera_c, camera_f, self.g_resnet1, image_size)
+        mesh, shape_features = self.unpool_graph(mesh, shape_features)
 
-        mesh = self.deform_mesh(mesh, vgg16_features, camera_c, camera_f, self.g_resnet2, image_size)
-        mesh = self.unpool_graph(mesh)
+        mesh, shape_features = self.deform_mesh(mesh, shape_features, vgg16_features, camera_c, camera_f, self.g_resnet2, image_size)
+        mesh, shape_features = self.unpool_graph(mesh, shape_features)
 
-        mesh = self.deform_mesh(mesh, vgg16_features, camera_c, camera_f, self.g_resnet3, image_size)
+        mesh, _ = self.deform_mesh(mesh, shape_features, vgg16_features, camera_c, camera_f, self.g_resnet3, image_size)
 
         return mesh
