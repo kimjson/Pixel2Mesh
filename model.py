@@ -122,7 +122,26 @@ class P2M(nn.Module):
         return Meshes(verts=[vertices], faces=[faces]).cuda()
 
     def unpool_graph(self, graph, shape_features):
-        raise NotImplementedError()
+        faces = graph.faces_list()[0]
+        vertices = graph.verts_list()[0]
+        newFaces = torch.tensor().cuda()
+        for face in faces :
+            i1,i2,i3 = face        
+            v1 = vertices[i1]
+            v2 = vertices[i2]
+            v3 = vertices[i3]
+            v4 = (v1 + v2)/2
+            v5 = (v2 + v3)/2
+            v6 = (v3 + v2)/2
+            vertices = torch.cat((vertices,torch.tensor([v4,v5,v6]).cuda()),0)
+            i4 = vertices.size()-2
+            i5 = vertices.size()-1
+            i6 = vertices.size()
+            newFace = torch.cat((newFaces, torch.tensor([i1,i4,i6]).cuda()),0)
+            newFace = torch.cat((newFaces, torch.tensor([i2,i4,i5]).cuda()),0)
+            newFace = torch.cat((newFaces, torch.tensor([i3,i5,i6]).cuda()),0)
+            newFace = torch.cat((newFaces, torch.tensor([i5,i4,i6]).cuda()),0)
+        return Meshes(verts=[vertices], faces=[newFaces]).cuda()
 
     def deform_mesh(self, mesh, shape_features, vgg16_features, camera_c, camera_f, g_resnet, image_size):
         # coordinates, feature = mesh
