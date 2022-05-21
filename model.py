@@ -140,21 +140,22 @@ class P2M(nn.Module):
             v5 = (v2 + v3)/2
             v6 = (v3 + v2)/2
 
-            vertices = torch.cat([
-                vertices,
-                torch.unsqueeze(v4, 0),
-                torch.unsqueeze(v5, 0),
-                torch.unsqueeze(v6, 0),
-            ], 0)
+            if ((vertices == v4).nonzero(as_tuple=True)[0]==torch.tensor([], dtype=torch.int64)): 
+                vertices = torch.cat([vertices, torch.unsqueeze(v4,0)],0)
+            if ((vertices == v5).nonzero(as_tuple=True)[0]==torch.tensor([], dtype=torch.int64)): 
+                vertices = torch.cat([vertices, torch.unsqueeze(v5,0)],0)
+            if ((vertices == v6).nonzero(as_tuple=True)[0]==torch.tensor([], dtype=torch.int64)): 
+                vertices = torch.cat([vertices, torch.unsqueeze(v6,0)],0)
 
-            i4 = vertices.size()[0]-2
-            i5 = vertices.size()[0]-1
-            i6 = vertices.size()[0]
+            i4 = (vertices == v4).nonzero(as_tuple=True)[0][0]
+            i5 = (vertices == v5).nonzero(as_tuple=True)[0][0]
+            i6 = (vertices == v6).nonzero(as_tuple=True)[0][0]
+  
             newFaces = torch.cat((newFaces, torch.tensor([[i1,i4,i6]]).cuda()),0)
             newFaces = torch.cat((newFaces, torch.tensor([[i2,i4,i5]]).cuda()),0)
             newFaces = torch.cat((newFaces, torch.tensor([[i3,i5,i6]]).cuda()),0)
             newFaces = torch.cat((newFaces, torch.tensor([[i5,i4,i6]]).cuda()),0)
-
+        
 
         print("final vertices and faces")
         print(vertices.shape)
