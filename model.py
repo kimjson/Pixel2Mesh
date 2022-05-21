@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import numpy as np
 from torchvision.models import vgg16
 from pytorch3d.io.ply_io import load_ply
 from pytorch3d.structures import Meshes
@@ -95,12 +96,12 @@ class P2M(nn.Module):
         result += torch.reshape(w12.broadcast_to(feature12.shape[:2]), feature12.shape) * feature12
         result += torch.reshape(w21.broadcast_to(feature21.shape[:2]), feature21.shape) * feature21
         result += torch.reshape(w22.broadcast_to(feature22.shape[:2]), feature22.shape) * feature22
-        
+
         return result
 
     def pool_features(self, coordinates_2d, vgg16_features, image_size):
         x, y = torch.split(coordinates_2d, 1, 1)
-            
+
         return [
             self.bilinear_interpolation(x, y, vgg16_features[0][0], image_size),
             self.bilinear_interpolation(x, y, vgg16_features[1][0], image_size),
@@ -124,31 +125,54 @@ class P2M(nn.Module):
     def unpool_graph(self, graph, shape_features):
         faces = graph.faces_list()[0]
         vertices = graph.verts_list()[0]
-        newFaces = torch.tensor().cuda()
+        newFaces = torch.tensor([]).cuda()
+
+        print("initial vertices and faces")
+        print(vertices.shape)
+        print(faces.shape)
+
         for face in faces :
-            i1,i2,i3 = face        
+            i1,i2,i3 = face
             v1 = vertices[i1]
             v2 = vertices[i2]
             v3 = vertices[i3]
             v4 = (v1 + v2)/2
             v5 = (v2 + v3)/2
             v6 = (v3 + v2)/2
-            vertices = torch.cat((vertices,torch.tensor([v4,v5,v6]).cuda()),0)
-            i4 = vertices.size()-2
-            i5 = vertices.size()-1
-            i6 = vertices.size()
-            newFace = torch.cat((newFaces, torch.tensor([i1,i4,i6]).cuda()),0)
-            newFace = torch.cat((newFaces, torch.tensor([i2,i4,i5]).cuda()),0)
-            newFace = torch.cat((newFaces, torch.tensor([i3,i5,i6]).cuda()),0)
-            newFace = torch.cat((newFaces, torch.tensor([i5,i4,i6]).cuda()),0)
-        return Meshes(verts=[vertices], faces=[newFaces]).cuda()
+
+            vertices = torch.cat([
+                vertices,
+                torch.unsqueeze(v4, 0),
+                torch.unsqueeze(v5, 0),
+                torch.unsqueeze(v6, 0),
+            ], 0)
+
+            i4 = vertices.size()[0]-2
+            i5 = vertices.size()[0]-1
+            i6 = vertices.size()[0]
+            newFaces = torch.cat((newFaces, torch.tensor([[i1,i4,i6]]).cuda()),0)
+            newFaces = torch.cat((newFaces, torch.tensor([[i2,i4,i5]]).cuda()),0)
+            newFaces = torch.cat((newFaces, torch.tensor([[i3,i5,i6]]).cuda()),0)
+            newFaces = torch.cat((newFaces, torch.tensor([[i5,i4,i6]]).cuda()),0)
+
+
+        print("final vertices and faces")
+        print(vertices.shape)
+        print(newFaces.shape)
+
+
+        return Meshes(verts=[vertices], faces=[newFaces]).cuda(), shape_features
 
     def deform_mesh(self, mesh, shape_features, vgg16_features, camera_c, camera_f, g_resnet, image_size):
         # coordinates, feature = mesh
         perception_feature = self.pool_perception_feature(mesh, vgg16_features, camera_c, camera_f, image_size)
 
+        # print("check shapes of perception feature and shape feature")
+        # print(perception_feature.shape)
+        # print(shape_features.shape)
+
         features = torch.concat([perception_feature, shape_features], 1)
-        
+
         # TODO: add another branch to calculate new coordinates
         return mesh, g_resnet(features)
 
@@ -166,7 +190,7 @@ class P2M(nn.Module):
 
         # Intial shape features are just coordinates (dimension 3)
         shape_features = mesh.verts_list()[0]
-        
+
         mesh, shape_features = self.deform_mesh(mesh, shape_features, vgg16_features, camera_c, camera_f, self.g_resnet1, image_size)
         mesh, shape_features = self.unpool_graph(mesh, shape_features)
 
