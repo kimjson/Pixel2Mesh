@@ -1,3 +1,4 @@
+from operator import index
 import torch
 import torch.nn as nn
 import numpy as np
@@ -123,10 +124,13 @@ class P2M(nn.Module):
         return Meshes(verts=[vertices], faces=[faces]).cuda()
 
     def findIndex (self,vertex, vertices) : 
-        for i,vert in enumerate(vertices) : 
-            if torch.equal(vert, vertex):
-                return i
+        indexOf = (vertices == vertex).nonzero(as_tuple=True)[0]
+        indexOf = torch.unique(indexOf)
+        if indexOf.size()[0] == 1 : 
+            return indexOf[0]
         return None
+
+
     def unpool_graph(self, graph, shape_features):
         faces = graph.faces_list()[0]
         vertices = graph.verts_list()[0]
