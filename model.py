@@ -6,6 +6,8 @@ from graph_convolution import GraphConvolution
 from torchvision.models import vgg16
 from pytorch3d.io.ply_io import load_ply
 from pytorch3d.structures import Meshes
+from g_resnet import GResNet
+
 
 class P2M(nn.Module):
     def __init__(self, ellipsoid_path):
@@ -33,9 +35,9 @@ class P2M(nn.Module):
         self.vgg16_conv4_3_layer.register_forward_hook(conv4_3_hook)
         self.vgg16_conv5_3_layer.register_forward_hook(conv5_3_hook)
 
-        self.g_resnet1 = GraphConvolution(1283, 128)
-        self.g_resnet2 = GraphConvolution(1408, 128)
-        self.g_resnet3 = GraphConvolution(1408, 128)
+        self.g_resnet1 = GResNet(1283, 128, 14)
+        self.g_resnet2 = GResNet(1408, 128, 14)
+        self.g_resnet3 = GResNet(1408, 128, 14)
 
     # @return pixel coordinates in 224x224 input image
     def image_project(self, coordinates, vgg16_features, camera_c, camera_f):
