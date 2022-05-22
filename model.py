@@ -35,9 +35,9 @@ class P2M(nn.Module):
         self.vgg16_conv4_3_layer.register_forward_hook(conv4_3_hook)
         self.vgg16_conv5_3_layer.register_forward_hook(conv5_3_hook)
 
-        self.g_resnet1 = GResNet(1283, 128, 14).to("cuda")
-        self.g_resnet2 = GResNet(1408, 128, 14).to("cuda")
-        self.g_resnet3 = GResNet(1408, 128, 14).to("cuda")
+        self.g_resnet1 = GResNet(1283, 128).to("cuda")
+        self.g_resnet2 = GResNet(1408, 128).to("cuda")
+        self.g_resnet3 = GResNet(1408, 128).to("cuda")
 
     # @return pixel coordinates in 224x224 input image
     def image_project(self, coordinates, vgg16_features, camera_c, camera_f):
