@@ -125,12 +125,9 @@ class P2M(nn.Module):
 
     def unpool_graph(self, graph, shape_features):
         faces = graph.faces_list()[0]
+        # TODO: concat with shape_features
         vertices = graph.verts_list()[0]
         newFaces = torch.tensor([]).cuda()
-
-        print("initial vertices and faces")
-        print(vertices.shape)
-        print(faces.shape)
 
         num_vertices = vertices.shape[0]
         vertex_table = -torch.ones([num_vertices, num_vertices], dtype=torch.long)
@@ -147,8 +144,6 @@ class P2M(nn.Module):
             v4 = (v1 + v2)/2
             v5 = (v2 + v3)/2
             v6 = (v3 + v1)/2
-
-            
 
             if i4 == -1:
                 vertices = torch.cat([vertices, torch.unsqueeze(v4,0)],0)
@@ -173,21 +168,16 @@ class P2M(nn.Module):
             newFaces = torch.cat((newFaces, torch.tensor([[i3,i5,i6]]).cuda()),0)
             newFaces = torch.cat((newFaces, torch.tensor([[i5,i4,i6]]).cuda()),0)
 
-
-        print("final vertices and faces")
-        print(vertices.shape)
-        print(newFaces.shape)
-
-
+        # TODO: split vertices into coordinates and shape_features
+        
         return Meshes(verts=[vertices], faces=[newFaces]).cuda(), shape_features
 
     def deform_mesh(self, mesh, shape_features, vgg16_features, camera_c, camera_f, g_resnet, image_size):
-        # coordinates, feature = mesh
         perception_feature = self.pool_perception_feature(mesh, vgg16_features, camera_c, camera_f, image_size)
 
-        # print("check shapes of perception feature and shape feature")
-        # print(perception_feature.shape)
-        # print(shape_features.shape)
+        print("check shapes of perception feature and shape feature")
+        print(perception_feature.shape)
+        print(shape_features.shape)
 
         features = torch.concat([perception_feature, shape_features], 1)
 
