@@ -123,14 +123,6 @@ class P2M(nn.Module):
         vertices, faces = load_ply(self.ellipsoid_path)
         return Meshes(verts=[vertices], faces=[faces]).cuda()
 
-    def findIndex (self,vertex, vertices) : 
-        indexOf = (vertices == vertex).nonzero(as_tuple=True)[0]
-        indexOf = torch.unique(indexOf)
-        if indexOf.size()[0] == 1 : 
-            return indexOf[0]
-        return None
-
-
     def unpool_graph(self, graph, shape_features):
         faces = graph.faces_list()[0]
         vertices = graph.verts_list()[0]
@@ -140,28 +132,41 @@ class P2M(nn.Module):
         print(vertices.shape)
         print(faces.shape)
 
+        num_vertices = vertices.shape[0]
+        vertex_table = -torch.ones([num_vertices, num_vertices], dtype=torch.long)
+
         for face in faces :
             i1,i2,i3 = face
             v1 = vertices[i1]
             v2 = vertices[i2]
             v3 = vertices[i3]
+
+            i4 = vertex_table[i1, i2]
+            i5 = vertex_table[i2, i3]
+            i6 = vertex_table[i3, i1]
             v4 = (v1 + v2)/2
             v5 = (v2 + v3)/2
-            v6 = (v3 + v2)/2
+            v6 = (v3 + v1)/2
 
-            i4 = self.findIndex(v4,vertices)
-            i5 = self.findIndex(v5,vertices)
-            i6 = self.findIndex(v6,vertices)
+            
 
-            if i4 is None:
+            if i4 == -1:
                 vertices = torch.cat([vertices, torch.unsqueeze(v4,0)],0)
-                i4 = vertices.size()[0]
-            if i5 is None:
+                i4 = vertices.shape[0] - 1
+                vertex_table[i1, i2] = i4
+                vertex_table[i2, i1] = i4
+
+            if i5 == -1:
                 vertices = torch.cat([vertices, torch.unsqueeze(v5,0)],0)
-                i5 = vertices.size()[0]
-            if i6 is None:
+                i5 = vertices.shape[0] - 1
+                vertex_table[i2, i3] = i5
+                vertex_table[i3, i2] = i5
+
+            if i6 == -1:
                 vertices = torch.cat([vertices, torch.unsqueeze(v6,0)],0)
-                i6 = vertices.size()[0]
+                i6 = vertices.shape[0] - 1
+                vertex_table[i3, i1] = i6
+                vertex_table[i1, i3] = i6
 
             newFaces = torch.cat((newFaces, torch.tensor([[i1,i4,i6]]).cuda()),0)
             newFaces = torch.cat((newFaces, torch.tensor([[i2,i4,i5]]).cuda()),0)
