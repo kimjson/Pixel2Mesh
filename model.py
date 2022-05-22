@@ -2,6 +2,7 @@ from operator import index
 import torch
 import torch.nn as nn
 import numpy as np
+from graph_convolution import GraphConvolution
 from torchvision.models import vgg16
 from pytorch3d.io.ply_io import load_ply
 from pytorch3d.structures import Meshes
@@ -34,7 +35,7 @@ class P2M(nn.Module):
 
         def create_g_resnet():
             # TODO: implement G-ResNet
-            return nn.Identity()
+            return GraphConvolution(1408, 128)
 
         self.g_resnet1 = create_g_resnet()
         self.g_resnet2 = create_g_resnet()
@@ -183,7 +184,7 @@ class P2M(nn.Module):
         features = torch.concat([perception_feature, shape_features], 1)
 
         # TODO: add another branch to calculate new coordinates
-        return mesh, g_resnet(features)
+        return mesh, g_resnet(mesh,features)
 
     def forward(self, image, camera_c, camera_f):
         _, __, image_size, ___ = image.shape
