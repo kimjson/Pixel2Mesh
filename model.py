@@ -1,8 +1,5 @@
-from operator import index
 import torch
 import torch.nn as nn
-import numpy as np
-from graph_convolution import GraphConvolution
 from torchvision.models import vgg16
 from pytorch3d.io.ply_io import load_ply
 from pytorch3d.structures import Meshes
@@ -176,9 +173,18 @@ class P2M(nn.Module):
         perception_feature = self.pool_perception_feature(mesh, vgg16_features, camera_c, camera_f, image_size)
 
         features = torch.concat([perception_feature, shape_features], 1)
-
+        
+        vertices = mesh.verts_list()[0]
+        faces = mesh.faces_list()[0]
+        neighbours = [set() for i in range(vertices.size()[0])]
+        for face in faces : 
+            i1,i2,i3 = face
+            neighbours[i1] = neighbours[i1].union({i2,i3})
+            neighbours[i2] = neighbours[i2].union({i1,i3})
+            neighbours[i3] = neighbours[i3].union({i2,i1})
+        
         # TODO: add another branch to calculate new coordinates
-        new_features = g_resnet(mesh, features)
+        new_features = g_resnet(neighbours, features)
         return mesh, new_features
 
     def forward(self, image, camera_c, camera_f):

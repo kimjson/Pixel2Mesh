@@ -9,17 +9,8 @@ class GraphConvolution(Module):
         self.linear1 = Linear(self.inputDim, self.outputDim)
         self.linear2 = Linear(self.inputDim, self.outputDim)
         
-    def forward(self,mesh,shape_features):
+    def forward(self,neighbours,shape_features):
         outputFeatures1 = self.linear1(shape_features) 
-        faces = mesh.faces_list()[0]
-        vertices = mesh.verts_list()[0]
-        neighbours = [set() for i in range(vertices.size()[0])]
-        # TODO : migrate neighbours logic outside of forward
-        for face in faces : 
-            i1,i2,i3 = face
-            neighbours[i1] = neighbours[i1].union({i2,i3})
-            neighbours[i2] = neighbours[i2].union({i1,i3})
-            neighbours[i3] = neighbours[i3].union({i2,i1})
         shapeFeaturesAggr = torch.empty(shape_features.size(), device="cuda")
         for index,neighbour in enumerate(neighbours):
             neighbour = torch.tensor(list(neighbour), device="cuda")
