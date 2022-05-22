@@ -29,4 +29,4 @@ class GraphConvolution(Module) :
         for index,neighbour in enumerate(neighbours):
             shapeFeaturesAggr[index] = torch.sum(shape_features[neighbour],0) 
         shape_features = outputFeatures1 + self.linear2(shapeFeaturesAggr)
-        return mesh, shape_features
+        return shape_features
