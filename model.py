@@ -33,13 +33,9 @@ class P2M(nn.Module):
         self.vgg16_conv4_3_layer.register_forward_hook(conv4_3_hook)
         self.vgg16_conv5_3_layer.register_forward_hook(conv5_3_hook)
 
-        def create_g_resnet():
-            # TODO: implement G-ResNet
-            return GraphConvolution(1408, 128)
-
-        self.g_resnet1 = create_g_resnet()
-        self.g_resnet2 = create_g_resnet()
-        self.g_resnet3 = create_g_resnet()
+        self.g_resnet1 = GraphConvolution(1283, 128)
+        self.g_resnet2 = GraphConvolution(1408, 128)
+        self.g_resnet3 = GraphConvolution(1408, 128)
 
     # @return pixel coordinates in 224x224 input image
     def image_project(self, coordinates, vgg16_features, camera_c, camera_f):
@@ -184,7 +180,8 @@ class P2M(nn.Module):
         features = torch.concat([perception_feature, shape_features], 1)
 
         # TODO: add another branch to calculate new coordinates
-        return mesh, g_resnet(mesh,features)
+        new_features = g_resnet(mesh, features)
+        return mesh, new_features
 
     def forward(self, image, camera_c, camera_f):
         _, __, image_size, ___ = image.shape
