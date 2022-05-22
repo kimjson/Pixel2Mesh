@@ -7,13 +7,17 @@ class GResNet(Module) :
         self.inputDim = inputDim
         self.outputDim = outputDim
         self.gcnlayers = [GraphConvolution(inputDim, outputDim).to("cuda")]+[GraphConvolution(outputDim, outputDim).to("cuda") for i in range(13)]
-        self.gcnlayers = [self.gcnlayers[i:i + 2] for i in range(0, 14, 2)] 
+        self.gcnlayers = self.gcnlayers[:1] + [self.gcnlayers[i:i + 2] for i in range(1, 13, 2)] + self.gcnlayers[-1:] 
     def forward(self, neighbours, shape_features):
-        for layer1, layer2 in self.gcnlayers:
+        shape_features = self.gcnlayers[0](neighbours, shape_features)
+        shape_features = ReLU()(shape_features)
+        for layer1, layer2 in self.gcnlayers[1:-1]:
             temp = shape_features
             shape_features = layer1(neighbours, shape_features)
             shape_features = ReLU()(shape_features)
             shape_features = layer2(neighbours, shape_features)
             shape_features = ReLU()(shape_features)
             shape_features =(temp + shape_features)/2
+        shape_features = self.gcnlayers[-1](neighbours, shape_features)
+        shape_features = ReLU()(shape_features)
         return shape_features
