@@ -8,6 +8,7 @@ class GraphConvolution(Module):
         self.outputDim = outputDim
         self.linear1 = Linear(self.inputDim, self.outputDim)
         self.linear2 = Linear(self.inputDim, self.outputDim)
+        
     def forward(self,mesh,shape_features):
         outputFeatures1 = self.linear1(shape_features) 
         faces = mesh.faces_list()[0]

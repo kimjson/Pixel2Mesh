@@ -35,9 +35,9 @@ class P2M(nn.Module):
         self.vgg16_conv4_3_layer.register_forward_hook(conv4_3_hook)
         self.vgg16_conv5_3_layer.register_forward_hook(conv5_3_hook)
 
-        self.g_resnet1 = GResNet(1283, 128, 14)
-        self.g_resnet2 = GResNet(1408, 128, 14)
-        self.g_resnet3 = GResNet(1408, 128, 14)
+        self.g_resnet1 = GResNet(1283, 128, 14).to("cuda")
+        self.g_resnet2 = GResNet(1408, 128, 14).to("cuda")
+        self.g_resnet3 = GResNet(1408, 128, 14).to("cuda")
 
     # @return pixel coordinates in 224x224 input image
     def image_project(self, coordinates, vgg16_features, camera_c, camera_f):
@@ -174,10 +174,6 @@ class P2M(nn.Module):
 
     def deform_mesh(self, mesh, shape_features, vgg16_features, camera_c, camera_f, g_resnet, image_size):
         perception_feature = self.pool_perception_feature(mesh, vgg16_features, camera_c, camera_f, image_size)
-
-        print("check shapes of perception feature and shape feature")
-        print(perception_feature.shape)
-        print(shape_features.shape)
 
         features = torch.concat([perception_feature, shape_features], 1)
 

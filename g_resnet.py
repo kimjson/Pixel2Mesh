@@ -6,9 +6,12 @@ class GResNet(Module) :
         super().__init__()
         self.inputDim = inputDim
         self.outputDim = outputDim
-        self.gcnlayers = [GraphConvolution(inputDim, outputDim)]+[GraphConvolution(outputDim, outputDim) for i in range(numOfLayers)-1]
+        self.gcnlayers = [GraphConvolution(inputDim, outputDim).to("cuda")]+[GraphConvolution(outputDim, outputDim).to("cuda") for i in range(numOfLayers - 1)]
+        
     def forward(self, mesh, shape_features):
         for layer in self.gcnlayers:
             relu = ReLU()
             shape_features = layer(mesh, shape_features)
             shape_features = relu(shape_features)
+
+        return shape_features
