@@ -15,5 +15,5 @@ class GResNet(Module) :
             shape_features = ReLU()(shape_features)
             shape_features = layer2(mesh, shape_features)
             shape_features = ReLU()(shape_features)
-            shape_features +=temp
+            shape_features =(temp + shape_features)/2
         return shape_features
