@@ -127,8 +127,8 @@ class P2M(nn.Module):
         faces = graph.faces_list()[0]
         # TODO: concat with shape_features
         vertices = graph.verts_list()[0]
+        vertices = torch.cat([vertices, shape_features], 1)
         newFaces = torch.tensor([]).cuda()
-
         num_vertices = vertices.shape[0]
         vertex_table = -torch.ones([num_vertices, num_vertices], dtype=torch.long)
 
@@ -167,9 +167,11 @@ class P2M(nn.Module):
             newFaces = torch.cat((newFaces, torch.tensor([[i2,i4,i5]]).cuda()),0)
             newFaces = torch.cat((newFaces, torch.tensor([[i3,i5,i6]]).cuda()),0)
             newFaces = torch.cat((newFaces, torch.tensor([[i5,i4,i6]]).cuda()),0)
-
+        verticesTemp = vertices[:, :3]
+        shapesTemp = vertices[:, 3:]
+        vertices = verticesTemp
+        shape_features = shapesTemp
         # TODO: split vertices into coordinates and shape_features
-        
         return Meshes(verts=[vertices], faces=[newFaces]).cuda(), shape_features
 
     def deform_mesh(self, mesh, shape_features, vgg16_features, camera_c, camera_f, g_resnet, image_size):
