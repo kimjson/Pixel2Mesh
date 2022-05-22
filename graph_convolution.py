@@ -1,10 +1,4 @@
-from operator import index
-from turtle import forward
 import torch
-import numpy as np
-from torchvision.models import vgg16
-from pytorch3d.io.ply_io import load_ply
-from pytorch3d.structures import Meshes
 from torch.nn import Linear, Module
 
 class GraphConvolution(Module) : 
