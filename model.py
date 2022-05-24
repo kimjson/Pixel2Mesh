@@ -1,10 +1,10 @@
-from operator import index
 import torch
 import torch.nn as nn
-import numpy as np
 from torchvision.models import vgg16
 from pytorch3d.io.ply_io import load_ply
 from pytorch3d.structures import Meshes
+from g_resnet import GResNet
+
 
 class P2M(nn.Module):
     def __init__(self, ellipsoid_path):
@@ -32,13 +32,9 @@ class P2M(nn.Module):
         self.vgg16_conv4_3_layer.register_forward_hook(conv4_3_hook)
         self.vgg16_conv5_3_layer.register_forward_hook(conv5_3_hook)
 
-        def create_g_resnet():
-            # TODO: implement G-ResNet
-            return nn.Identity()
-
-        self.g_resnet1 = create_g_resnet()
-        self.g_resnet2 = create_g_resnet()
-        self.g_resnet3 = create_g_resnet()
+        self.g_resnet1 = GResNet(1283, 128).to("cuda")
+        self.g_resnet2 = GResNet(1408, 128).to("cuda")
+        self.g_resnet3 = GResNet(1408, 128).to("cuda")
 
     # @return pixel coordinates in 224x224 input image
     def image_project(self, coordinates, vgg16_features, camera_c, camera_f):
@@ -74,6 +70,9 @@ class P2M(nn.Module):
         return pixel_coordinates
 
     def bilinear_interpolation(self, x, y, feature, image_size):
+        x = torch.clamp(x, min=0, max=image_size - 1)
+        y = torch.clamp(y, min=0, max=image_size - 1)
+
         dimension = feature.shape[1]
         x = x * dimension / image_size
         y = y * dimension / image_size
@@ -176,14 +175,20 @@ class P2M(nn.Module):
     def deform_mesh(self, mesh, shape_features, vgg16_features, camera_c, camera_f, g_resnet, image_size):
         perception_feature = self.pool_perception_feature(mesh, vgg16_features, camera_c, camera_f, image_size)
 
-        print("check shapes of perception feature and shape feature")
-        print(perception_feature.shape)
-        print(shape_features.shape)
-
         features = torch.concat([perception_feature, shape_features], 1)
-
-        # TODO: add another branch to calculate new coordinates
-        return mesh, g_resnet(features)
+        
+        vertices = mesh.verts_list()[0]
+        faces = mesh.faces_list()[0]
+        neighbours = [set() for i in range(vertices.size()[0])]
+        for face in faces : 
+            i1,i2,i3 = face
+            neighbours[i1] = neighbours[i1].union({i2,i3})
+            neighbours[i2] = neighbours[i2].union({i1,i3})
+            neighbours[i3] = neighbours[i3].union({i2,i1})
+        
+        new_features, coordinates = g_resnet(neighbours, features)
+        deformed_mesh = Meshes(verts=[coordinates], faces=[faces]).cuda()
+        return deformed_mesh, new_features
 
     def forward(self, image, camera_c, camera_f):
         _, __, image_size, ___ = image.shape
