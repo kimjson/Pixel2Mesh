@@ -70,17 +70,17 @@ class P2M(nn.Module):
         return pixel_coordinates
 
     def bilinear_interpolation(self, x, y, feature, image_size):
-        x = torch.clamp(x, min=0, max=image_size - 1)
-        y = torch.clamp(y, min=0, max=image_size - 1)
-
         dimension = feature.shape[1]
         x = x * dimension / image_size
         y = y * dimension / image_size
 
+        x = torch.clamp(x, min=0, max=dimension - 1)
+        y = torch.clamp(y, min=0, max=dimension - 1)
+
         x1 = torch.floor(x)
-        x2 = x1 + 1
+        x2 = torch.ceil(x)
         y1 = torch.floor(y)
-        y2 = y1 + 1
+        y2 = torch.ceil(y)
 
         feature11 = feature[:, x1.to(torch.long), y1.to(torch.long)].transpose(0, 1)
         feature12 = feature[:, x1.to(torch.long), y2.to(torch.long)].transpose(0, 1)

@@ -1,10 +1,10 @@
 import torch
 from torch.utils.data import DataLoader
-from Pixel2Mesh.loss import p2m_loss
 from torchvision import transforms
 
 from dataset import ShapeNet
 from model import P2M
+from loss import p2m_loss
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -23,17 +23,18 @@ def train(dataloader, model, loss_function, optimizer):
 
         # Compute prediction error
         predicted_mesh = model(image, dataloader.dataset.camera_c, dataloader.dataset.camera_f)
-        print(points.size())
-        vertices = predicted_mesh.verts_list()
-        loss = p2m_loss(vertices, points)
+        vertices = predicted_mesh.verts_padded()
+        loss = loss_function(vertices, points)
         # Backpropagation
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
 
+        loss, current = loss.item(), batch * len(image)
+
         if batch % 100 == 0:
-            loss, current = loss.item(), batch * len(image)
             print(f"loss: {loss:>7f}  [{current:>5d}/{size:>5d}]")
+    print(f"loss: {loss:>7f}  [{current:>5d}/{size:>5d}]")
 
 if __name__ == "__main__":
     transform = transforms.Compose([
@@ -48,11 +49,11 @@ if __name__ == "__main__":
 
     optimizer = torch.optim.Adam(model.parameters(), lr=0.0001)
 
-    epochs = 1
+    epochs = 100
     
     for i in range(epochs):
         print(f"Epoch {i+1}\n-------------------------------")
-        train(train_dataloader, model, loss_function, optimizer)
+        train(train_dataloader, model, p2m_loss, optimizer)
 
     print("Done!")
     
