@@ -21,5 +21,5 @@ class GResNet(Module) :
             shape_features =(temp + shape_features)/2
         shape_features = self.gcnlayers[-1](neighbours, shape_features)
         shape_features = ReLU()(shape_features)
-        coordinates = self.extra_gcnlayer(shape_features)
+        coordinates = self.extra_gcnlayer(neighbours, shape_features)
         return shape_features, coordinates
