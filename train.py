@@ -1,5 +1,6 @@
 import torch
 from torch.utils.data import DataLoader
+from Pixel2Mesh.loss import p2m_loss
 from torchvision import transforms
 
 from dataset import ShapeNet
@@ -14,9 +15,6 @@ ellipsoid_path = "/root/Pixel2Mesh/data/initial_ellipsoid.ply"
 camera_c = [112.0, 112.0]
 camera_f = [250.0, 250.0]
 
-def loss_function(predicted_mesh, true_points, true_normals):
-    return 0
-
 def train(dataloader, model, loss_function, optimizer):
     size = len(dataloader.dataset)
     model.train()
@@ -25,8 +23,9 @@ def train(dataloader, model, loss_function, optimizer):
 
         # Compute prediction error
         predicted_mesh = model(image, dataloader.dataset.camera_c, dataloader.dataset.camera_f)
-        loss = loss_function(predicted_mesh, points, surface_normals)
-
+        print(points.size())
+        vertices = predicted_mesh.verts_list()
+        loss = p2m_loss(vertices, points)
         # Backpropagation
         optimizer.zero_grad()
         loss.backward()
@@ -49,7 +48,7 @@ if __name__ == "__main__":
 
     optimizer = torch.optim.Adam(model.parameters(), lr=0.0001)
 
-    epochs = 2
+    epochs = 1
     
     for i in range(epochs):
         print(f"Epoch {i+1}\n-------------------------------")
