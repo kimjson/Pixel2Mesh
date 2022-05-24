@@ -183,9 +183,9 @@ class P2M(nn.Module):
             neighbours[i2] = neighbours[i2].union({i1,i3})
             neighbours[i3] = neighbours[i3].union({i2,i1})
         
-        # TODO: add another branch to calculate new coordinates
-        new_features = g_resnet(neighbours, features)
-        return mesh, new_features
+        new_features, coordinates = g_resnet(neighbours, features)
+        deformed_mesh = Meshes(verts=[coordinates], faces=[faces]).cuda()
+        return deformed_mesh, new_features
 
     def forward(self, image, camera_c, camera_f):
         _, __, image_size, ___ = image.shape
