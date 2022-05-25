@@ -11,4 +11,5 @@ dependencies:
   - nvidiacub
   - pytorch3d
   - scipy
+  - torchinfo
 prefix: /root/miniconda3/envs/pytorch3d

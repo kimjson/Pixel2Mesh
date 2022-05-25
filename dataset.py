@@ -5,10 +5,11 @@ from torch.utils.data import Dataset
 from torchvision.io import read_image, ImageReadMode
 
 class ShapeNet(Dataset):
-    def __init__(self, meta_file_path, data_base_path, camera_c, camera_f, transform=None):
+    def __init__(self, meta_file_path, data_base_path, transform=None):
         # read list file
         with open(meta_file_path, 'r') as meta_file:
-            self.dat_file_paths = meta_file.readlines()
+            # TODO: REMOVE SLICING!!!
+            self.dat_file_paths = meta_file.readlines()[:5]
             self.png_file_paths = self.dat_file_paths[:]
 
             for i, path in enumerate(self.dat_file_paths):
@@ -16,8 +17,6 @@ class ShapeNet(Dataset):
                 self.dat_file_paths[i] = os.path.join(data_base_path, path_without_prefix)
                 self.png_file_paths[i] = self.dat_file_paths[i].replace(".dat", ".png")
 
-        self.camera_c = camera_c
-        self.camera_f = camera_f
         self.transform = transform
                 
 

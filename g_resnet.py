@@ -1,17 +1,21 @@
 from graph_convolution import GraphConvolution
-from torch.nn import Module, ReLU
+from torch.nn import Module, ReLU, ModuleList
 
 class GResNet(Module) : 
     def __init__(self, inputDim, outputDim):
-        super().__init__()
+        super(GResNet, self).__init__()
+        
         self.inputDim = inputDim
         self.outputDim = outputDim
         self.gcnlayers = [GraphConvolution(inputDim, outputDim).to("cuda")]+[GraphConvolution(outputDim, outputDim).to("cuda") for i in range(12)]+[GraphConvolution(outputDim, 3).to("cuda")]
-        self.gcnlayers = self.gcnlayers[:1] + [self.gcnlayers[i:i + 2] for i in range(1, 13, 2)] + self.gcnlayers[-1:] 
+        self.gcnlayers = ModuleList(self.gcnlayers)
+
     def forward(self, neighbours, shape_features):
         shape_features = self.gcnlayers[0](neighbours, shape_features)
         shape_features = ReLU()(shape_features)
-        for layer1, layer2 in self.gcnlayers[1:-1]:
+        for i in range(1, len(self.gcnlayers) - 2, 2):
+            layer1 = self.gcnlayers[i]
+            layer2 = self.gcnlayers[i+1]
             temp = shape_features
             shape_features = layer1(neighbours, shape_features)
             shape_features = ReLU()(shape_features)

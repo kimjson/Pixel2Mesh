@@ -7,8 +7,8 @@ from g_resnet import GResNet
 
 
 class P2M(nn.Module):
-    def __init__(self, ellipsoid_path):
-        super().__init__()
+    def __init__(self, ellipsoid_path, camera_c, camera_f):
+        super(P2M, self).__init__()
 
         self.ellipsoid_path = ellipsoid_path
 
@@ -35,6 +35,9 @@ class P2M(nn.Module):
         self.g_resnet1 = GResNet(1283, 128).to("cuda")
         self.g_resnet2 = GResNet(1408, 128).to("cuda")
         self.g_resnet3 = GResNet(1408, 128).to("cuda")
+
+        self.camera_c = camera_c
+        self.camera_f = camera_f
 
     # @return pixel coordinates in 224x224 input image
     def image_project(self, coordinates, vgg16_features, camera_c, camera_f):
@@ -190,7 +193,10 @@ class P2M(nn.Module):
         deformed_mesh = Meshes(verts=[coordinates], faces=[faces]).cuda()
         return deformed_mesh, new_features
 
-    def forward(self, image, camera_c, camera_f):
+    def forward(self, image):
+        camera_c = self.camera_c
+        camera_f = self.camera_f
+
         _, __, image_size, ___ = image.shape
         self.vgg16(image)
 
