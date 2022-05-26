@@ -31,11 +31,9 @@ def train(dataloader, model, loss_function, optimizer):
         loss.backward()
         optimizer.step()
 
-        loss, current = loss.item(), batch * len(image)
-
-        if batch % 100 == 0:
+        if batch % 10 == 0:
+            loss, current = loss.item(), batch * len(image)
             print(f"loss: {loss:>7f}  [{current:>5d}/{size:>5d}]")
-    print(f"loss: {loss:>7f}  [{current:>5d}/{size:>5d}]")
 
 if __name__ == "__main__":
     transform = transforms.Compose([
@@ -53,7 +51,7 @@ if __name__ == "__main__":
     # TODO: decrease lr to 1e-5 after 40 epochs
     optimizer = torch.optim.Adam(model.parameters(), lr=3e-5, weight_decay=1e-5)
 
-    epochs = 10
+    epochs = 40
     
     for i in range(epochs):
         print(f"Epoch {i+1}\n-------------------------------")

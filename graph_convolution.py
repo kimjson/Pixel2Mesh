@@ -9,14 +9,16 @@ class GraphConvolution(Module):
         self.outputDim = outputDim
         
         self.linear1 = Linear(self.inputDim, self.outputDim)
-        # torch.nn.init.constant_(self.linear1.weight, 0.0)
-        # torch.nn.init.constant_(self.linear1.bias, 0.0)
+        torch.nn.init.constant_(self.linear1.weight, 0.0)
+        torch.nn.init.constant_(self.linear1.bias, 0.0)
 
         self.linear2 = Linear(self.inputDim, self.outputDim)
-        # torch.nn.init.constant_(self.linear2.weight, 0.0)
-        # torch.nn.init.constant_(self.linear2.bias, 0.0)
+        torch.nn.init.constant_(self.linear2.weight, 0.0)
+        torch.nn.init.constant_(self.linear2.bias, 0.0)
 
     def forward(self,neighbours,shape_features):
+        print(f"# of non zero weights of linear1: {torch.count_nonzero(list(self.linear1.parameters())[0].data)}")
+        print(f"# of non zero weights of linear2: {torch.count_nonzero(list(self.linear2.parameters())[0].data)}")
         outputFeatures1 = self.linear1(shape_features) 
         shapeFeaturesAggr = torch.empty(shape_features.size(), device="cuda")
         for index,neighbour in enumerate(neighbours):
