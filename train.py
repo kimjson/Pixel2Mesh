@@ -23,13 +23,18 @@ def train(dataloader, model, loss_function, optimizer):
         image, points, surface_normals = image.to(device), points.to(device), surface_normals.to(device)
 
         # Compute prediction error
-        predicted_mesh = model(image)
-        vertices = predicted_mesh.verts_padded()
+        vertices, faces = model(image)
+        vertices = torch.reshape(vertices, (1, vertices.shape[0], vertices.shape[1]))
+
         loss = loss_function(vertices, points)
         # Backpropagation
         optimizer.zero_grad()
+        parameters_before = list(model.parameters())[-1].clone()
         loss.backward()
         optimizer.step()
+        parameters_after = list(model.parameters())[-1].clone()
+
+        print(f"are before and after parameters equal: {torch.equal(parameters_before.data, parameters_after.data)}")
 
         loss, current = loss.item(), batch * len(image)
 

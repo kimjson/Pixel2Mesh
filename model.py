@@ -111,8 +111,8 @@ class P2M(nn.Module):
             self.bilinear_interpolation(x, y, vgg16_features[2][0], image_size),
         ]
 
-    def pool_perception_feature(self, mesh, vgg16_features, camera_c, camera_f, image_size):
-        coordinates = mesh.verts_list()[0]
+    def pool_perception_feature(self, vertices, faces, vgg16_features, camera_c, camera_f, image_size):
+        coordinates = vertices
         pixel_coordinates = self.image_project(coordinates, vgg16_features, camera_c, camera_f)
         perception_features = self.pool_features(pixel_coordinates, vgg16_features, image_size)
 
@@ -123,14 +123,11 @@ class P2M(nn.Module):
 
     def generate_initial_mesh(self):
         vertices, faces = load_ply(self.ellipsoid_path)
-        return Meshes(verts=[vertices], faces=[faces]).cuda()
+        return vertices.cuda(), faces.cuda()
 
-    def unpool_graph(self, graph, shape_features):
-        faces = graph.faces_list()[0]
-        # TODO: concat with shape_features
-        vertices = graph.verts_list()[0]
+    def unpool_graph(self, vertices, faces, shape_features):
         vertices = torch.cat([vertices, shape_features], 1)
-        newFaces = torch.tensor([]).cuda()
+        newFaces = torch.tensor([], dtype=torch.long, device="cuda")
         num_vertices = vertices.shape[0]
         vertex_table = -torch.ones([num_vertices, num_vertices], dtype=torch.long)
 
@@ -165,23 +162,21 @@ class P2M(nn.Module):
                 vertex_table[i3, i1] = i6
                 vertex_table[i1, i3] = i6
 
-            newFaces = torch.cat((newFaces, torch.tensor([[i1,i4,i6]]).cuda()),0)
-            newFaces = torch.cat((newFaces, torch.tensor([[i2,i4,i5]]).cuda()),0)
-            newFaces = torch.cat((newFaces, torch.tensor([[i3,i5,i6]]).cuda()),0)
-            newFaces = torch.cat((newFaces, torch.tensor([[i5,i4,i6]]).cuda()),0)
-            
+            newFaces = torch.cat((newFaces, torch.tensor([[i1,i4,i6]], dtype=torch.long, device="cuda")),0)
+            newFaces = torch.cat((newFaces, torch.tensor([[i2,i4,i5]], dtype=torch.long, device="cuda")),0)
+            newFaces = torch.cat((newFaces, torch.tensor([[i3,i5,i6]], dtype=torch.long, device="cuda")),0)
+            newFaces = torch.cat((newFaces, torch.tensor([[i5,i4,i6]], dtype=torch.long, device="cuda")),0)
+
         shape_features = vertices[:, 3:]
         vertices = vertices[:, :3]
-        
-        return Meshes(verts=[vertices], faces=[newFaces]).cuda(), shape_features
 
-    def deform_mesh(self, mesh, shape_features, vgg16_features, camera_c, camera_f, g_resnet, image_size):
-        perception_feature = self.pool_perception_feature(mesh, vgg16_features, camera_c, camera_f, image_size)
+        return vertices, newFaces, shape_features
+
+    def deform_mesh(self, vertices, faces, shape_features, vgg16_features, camera_c, camera_f, g_resnet, image_size):
+        perception_feature = self.pool_perception_feature(vertices, faces, vgg16_features, camera_c, camera_f, image_size)
 
         features = torch.concat([perception_feature, shape_features], 1)
         
-        vertices = mesh.verts_list()[0]
-        faces = mesh.faces_list()[0]
         neighbours = [set() for i in range(vertices.size()[0])]
         for face in faces : 
             i1,i2,i3 = face
@@ -190,8 +185,7 @@ class P2M(nn.Module):
             neighbours[i3] = neighbours[i3].union({i2,i1})
         
         new_features, coordinates = g_resnet(neighbours, features)
-        deformed_mesh = Meshes(verts=[coordinates], faces=[faces]).cuda()
-        return deformed_mesh, new_features
+        return coordinates, faces, new_features
 
     def forward(self, image):
         camera_c = self.camera_c
@@ -206,17 +200,17 @@ class P2M(nn.Module):
             self.vgg16_conv5_3_feature,
         ]
 
-        mesh = self.generate_initial_mesh()
+        vertices, faces = self.generate_initial_mesh()
 
         # Intial shape features are just coordinates (dimension 3)
-        shape_features = mesh.verts_list()[0]
+        shape_features = vertices
 
-        mesh, shape_features = self.deform_mesh(mesh, shape_features, vgg16_features, camera_c, camera_f, self.g_resnet1, image_size)
-        mesh, shape_features = self.unpool_graph(mesh, shape_features)
+        vertices, faces, shape_features = self.deform_mesh(vertices, faces, shape_features, vgg16_features, camera_c, camera_f, self.g_resnet1, image_size)
+        vertices, faces, shape_features = self.unpool_graph(vertices, faces, shape_features)
 
-        mesh, shape_features = self.deform_mesh(mesh, shape_features, vgg16_features, camera_c, camera_f, self.g_resnet2, image_size)
-        mesh, shape_features = self.unpool_graph(mesh, shape_features)
+        vertices, faces, shape_features = self.deform_mesh(vertices, faces, shape_features, vgg16_features, camera_c, camera_f, self.g_resnet2, image_size)
+        vertices, faces, shape_features = self.unpool_graph(vertices, faces, shape_features)
 
-        mesh, _ = self.deform_mesh(mesh, shape_features, vgg16_features, camera_c, camera_f, self.g_resnet3, image_size)
+        vertices, faces, _ = self.deform_mesh(vertices, faces, shape_features, vgg16_features, camera_c, camera_f, self.g_resnet3, image_size)
 
-        return mesh
+        return vertices, faces

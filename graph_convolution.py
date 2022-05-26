@@ -1,20 +1,22 @@
 import torch
-from torch.nn import Linear, Module
+from torch.nn import Linear, Module, ReLU
 
 class GraphConvolution(Module): 
-    def __init__(self, inputDim, outputDim):
+    def __init__(self, inputDim, outputDim, activation=ReLU()):
         super(GraphConvolution, self).__init__()
 
         self.inputDim = inputDim
         self.outputDim = outputDim
         
         self.linear1 = Linear(self.inputDim, self.outputDim)
-        # torch.nn.init.constant_(self.linear1.weight, 0.0)
-        # torch.nn.init.constant_(self.linear1.bias, 0.0)
+        torch.nn.init.constant_(self.linear1.weight, 0.0)
+        torch.nn.init.constant_(self.linear1.bias, 0.0)
 
         self.linear2 = Linear(self.inputDim, self.outputDim)
-        # torch.nn.init.constant_(self.linear2.weight, 0.0)
-        # torch.nn.init.constant_(self.linear2.bias, 0.0)
+        torch.nn.init.constant_(self.linear2.weight, 0.0)
+        torch.nn.init.constant_(self.linear2.bias, 0.0)
+
+        self.activation = activation
 
     def forward(self,neighbours,shape_features):
         outputFeatures1 = self.linear1(shape_features) 
@@ -23,4 +25,4 @@ class GraphConvolution(Module):
             neighbour = torch.tensor(list(neighbour), device="cuda")
             shapeFeaturesAggr[index] = torch.sum(shape_features[neighbour], 0)
         shape_features = outputFeatures1 + self.linear2(shapeFeaturesAggr)
-        return shape_features
+        return self.activation(shape_features)
