@@ -20,8 +20,6 @@ class GResNet(Module) :
             shape_features = layer2(neighbours, shape_features)
             shape_features =(temp + shape_features)/2
 
-            print(f'{i}th shape feature: ', shape_features[0])
-
         coordinates = self.gcnlayers[-1](neighbours, shape_features)
 
         return shape_features, coordinates

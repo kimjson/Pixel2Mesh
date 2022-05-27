@@ -12,4 +12,5 @@ dependencies:
   - pytorch3d
   - scipy
   - torchinfo
+  - wandb
 prefix: /root/miniconda3/envs/pytorch3d

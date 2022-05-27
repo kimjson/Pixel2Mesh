@@ -2,6 +2,7 @@ import torch
 from torch.utils.data import DataLoader
 from torchvision import transforms
 from torchinfo import summary
+import wandb
 
 from dataset import ShapeNet
 from model import P2M
@@ -53,12 +54,18 @@ if __name__ == "__main__":
 
     model = P2M(ellipsoid_path, camera_c, camera_f).to(device)
 
+    # for name, param in model.named_parameters():
+    #     if param.requires_grad:
+    #         print(name, param.data)
+
     # summary(model, input_size=(1, 3, 224, 224))
 
     # TODO: decrease lr to 1e-5 after 40 epochs
     optimizer = torch.optim.Adam(model.parameters(), lr=3e-5, weight_decay=1e-5)
 
     epochs = 10
+
+    # wandb.watch(model, log="all")
     
     for i in range(epochs):
         print(f"Epoch {i+1}\n-------------------------------")
