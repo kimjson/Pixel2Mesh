@@ -2,9 +2,9 @@ from unittest import result
 from pytorch3d.loss import chamfer_distance 
 from pytorch3d.ops import knn_points
 import torch
-def p2m_loss (prediction, g_truth, g_truth_normals, neighbours): 
-    chamferloss, chamferloss_normals = chamfer_distance(prediction, g_truth)
-    loss = normal_loss(prediction, g_truth, g_truth_normals, neighbours) + chamferloss
+def p2m_loss (prediction, g_truth, g_truth_normals, neighbours, laplacian_regularization_value): 
+    chamferloss, _ = chamfer_distance(prediction, g_truth)
+    loss = normal_loss(prediction, g_truth, g_truth_normals, neighbours) + chamferloss + edge_regularization(prediction, neighbours) + laplacian_regularization_value
     return loss
 
 #TODO : normalize vectors
@@ -20,3 +20,20 @@ def normal_loss(prediction, g_truth, g_truth_normals, neighbours):
             edge = prediction[vert] - prediction[index]
             result +=torch.dot(edge, surface_normal)
     return result
+
+def edge_regularization(prediction,neighbours):
+    result = 0
+    prediction = prediction[0]
+    for index, neighbour in enumerate(neighbours) : 
+        for vert in neighbour : 
+            result += torch.norm(prediction[vert] - prediction[index])**2
+    return result/2.0
+def laplacian_regularization(vertices_before,vertices_after, neighbours) : 
+    loss = 0
+    for index, neighbour in enumerate(neighbours):
+        sum_before = torch.sum(vertices_before[neighbour])
+        delta_before = vertices_before[index] - sum_before
+        sum_after = torch.sum(vertices_after[neighbour])
+        delta_after =  vertices_after[index]-sum_after
+        loss += (delta_after - delta_before)**2
+    return loss

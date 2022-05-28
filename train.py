@@ -1,5 +1,6 @@
 import torch
 from torch.utils.data import DataLoader
+from Pixel2Mesh.loss import laplacian_regularization
 from torchvision import transforms
 from torchinfo import summary
 
@@ -23,9 +24,9 @@ def train(dataloader, model, loss_function, optimizer):
         image, points, surface_normals = image.to(device), points.to(device), surface_normals.to(device)
 
         # Compute prediction error
-        predicted_mesh, neighbours = model(image)
+        predicted_mesh, neighbours, laplacian_regularization_value = model(image)
         vertices = predicted_mesh.verts_padded()
-        loss = loss_function(vertices, points, surface_normals, neighbours)
+        loss = loss_function(vertices, points, surface_normals, neighbours, laplacian_regularization_value)
         # Backpropagation
         optimizer.zero_grad()
         loss.backward()

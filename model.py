@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+from Pixel2Mesh.loss import laplacian_regularization
 from torchvision.models import vgg16
 from pytorch3d.io.ply_io import load_ply
 from pytorch3d.structures import Meshes
@@ -210,13 +211,21 @@ class P2M(nn.Module):
 
         # Intial shape features are just coordinates (dimension 3)
         shape_features = mesh.verts_list()[0]
-
+        vertices_before = shape_features
         mesh, shape_features, _ = self.deform_mesh(mesh, shape_features, vgg16_features, camera_c, camera_f, self.g_resnet1, image_size)
+        vertices_after = mesh.verts_list()[0]
+        laplacian_regularization_value = laplacian_regularization(vertices_before, vertices_after)
         mesh, shape_features = self.unpool_graph(mesh, shape_features)
 
+        vertices_before = mesh.verts_list()[0]
         mesh, shape_features, _ = self.deform_mesh(mesh, shape_features, vgg16_features, camera_c, camera_f, self.g_resnet2, image_size)
+        vertices_after = mesh.verts_list()[0]
+        laplacian_regularization_value += laplacian_regularization(vertices_before, vertices_after)
         mesh, shape_features = self.unpool_graph(mesh, shape_features)
 
+        vertices_before = mesh.verts_list()[0]
         mesh, _ , neighbours = self.deform_mesh(mesh, shape_features, vgg16_features, camera_c, camera_f, self.g_resnet3, image_size)
+        vertices_after = mesh.verts_list()[0]
+        laplacian_regularization_value += laplacian_regularization(vertices_before, vertices_after)
 
-        return mesh, neighbours
+        return mesh, neighbours, laplacian_regularization_value
