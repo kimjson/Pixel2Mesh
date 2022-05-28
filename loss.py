@@ -31,9 +31,10 @@ def edge_regularization(prediction,neighbours):
 def laplacian_regularization(vertices_before,vertices_after, neighbours) : 
     loss = 0
     for index, neighbour in enumerate(neighbours):
-        sum_before = torch.sum(vertices_before[neighbour])
+        neighbour_indices = torch.tensor(list(neighbour))
+        sum_before = torch.sum(vertices_before[neighbour_indices])
         delta_before = vertices_before[index] - sum_before
-        sum_after = torch.sum(vertices_after[neighbour])
+        sum_after = torch.sum(vertices_after[neighbour_indices])
         delta_after =  vertices_after[index]-sum_after
-        loss += (delta_after - delta_before)**2
+        loss += torch.norm(delta_after - delta_before)**2
     return loss

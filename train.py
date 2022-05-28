@@ -1,6 +1,5 @@
 import torch
 from torch.utils.data import DataLoader
-from Pixel2Mesh.loss import laplacian_regularization
 from torchvision import transforms
 from torchinfo import summary
 
