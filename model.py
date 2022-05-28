@@ -191,7 +191,7 @@ class P2M(nn.Module):
         
         new_features, coordinates = g_resnet(neighbours, features)
         deformed_mesh = Meshes(verts=[coordinates], faces=[faces]).cuda()
-        return deformed_mesh, new_features
+        return deformed_mesh, new_features, neighbours
 
     def forward(self, image):
         camera_c = self.camera_c
@@ -211,12 +211,12 @@ class P2M(nn.Module):
         # Intial shape features are just coordinates (dimension 3)
         shape_features = mesh.verts_list()[0]
 
-        mesh, shape_features = self.deform_mesh(mesh, shape_features, vgg16_features, camera_c, camera_f, self.g_resnet1, image_size)
+        mesh, shape_features, _ = self.deform_mesh(mesh, shape_features, vgg16_features, camera_c, camera_f, self.g_resnet1, image_size)
         mesh, shape_features = self.unpool_graph(mesh, shape_features)
 
-        mesh, shape_features = self.deform_mesh(mesh, shape_features, vgg16_features, camera_c, camera_f, self.g_resnet2, image_size)
+        mesh, shape_features, _ = self.deform_mesh(mesh, shape_features, vgg16_features, camera_c, camera_f, self.g_resnet2, image_size)
         mesh, shape_features = self.unpool_graph(mesh, shape_features)
 
-        mesh, _ = self.deform_mesh(mesh, shape_features, vgg16_features, camera_c, camera_f, self.g_resnet3, image_size)
+        mesh, _ , neighbours = self.deform_mesh(mesh, shape_features, vgg16_features, camera_c, camera_f, self.g_resnet3, image_size)
 
-        return mesh
+        return mesh, neighbours
