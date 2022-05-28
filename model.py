@@ -1,12 +1,11 @@
 import torch
 import torch.nn as nn
-from Pixel2Mesh.loss import p2m_loss
 from torchvision.models import vgg16
 from pytorch3d.io.ply_io import load_ply
 from pytorch3d.structures import Meshes
 
 from g_resnet import GResNet
-from loss import laplacian_regularization
+from loss import p2m_loss, laplacian_regularization
 
 class P2M(nn.Module):
     def __init__(self, ellipsoid_path, camera_c, camera_f):
@@ -182,7 +181,6 @@ class P2M(nn.Module):
         features = torch.concat([perception_feature, shape_features], 1)
         
         vertices = mesh.verts_list()[0]
-        vertices_before = vertices
         faces = mesh.faces_list()[0]
         neighbours = [set() for i in range(vertices.size()[0])]
         for face in faces : 
@@ -191,11 +189,15 @@ class P2M(nn.Module):
             neighbours[i2] = neighbours[i2].union({i1,i3})
             neighbours[i3] = neighbours[i3].union({i2,i1})
         new_features, coordinates = g_resnet(neighbours, features)
-        vertices_after = coordinates
         deformed_mesh = Meshes(verts=[coordinates], faces=[faces]).cuda()
-        #TODO : multiply by 0.1 if this is first deform block
-        laplacian_regularization_value =  laplacian_regularization(vertices_before, vertices_after, neighbours)
-        loss = p2m_loss(vertices_after, g_truth,g_truth_normals, neighbours, laplacian_regularization_value)
+
+        vertices_before = torch.unsqueeze(vertices, 0)
+        vertices_after = torch.unsqueeze(coordinates, 0)
+        # TODO : multiply by 0.1 if this is first deform block
+        # laplacian_regularization_value = 0.1 * laplacian_regularization(vertices_before, vertices_after, neighbours)
+        laplacian_regularization_value = laplacian_regularization(vertices_before, vertices_after, neighbours)
+        loss = p2m_loss(vertices_after, g_truth, g_truth_normals, neighbours, laplacian_regularization_value)
+
         return deformed_mesh, new_features, neighbours, loss
 
     def forward(self, image, g_truth, g_truth_normals):
