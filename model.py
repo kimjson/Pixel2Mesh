@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+from Pixel2Mesh.loss import p2m_loss
 from torchvision.models import vgg16
 from pytorch3d.io.ply_io import load_ply
 from pytorch3d.structures import Meshes
@@ -176,9 +177,8 @@ class P2M(nn.Module):
         
         return Meshes(verts=[vertices], faces=[newFaces]).cuda(), shape_features
 
-    def deform_mesh(self, mesh, shape_features, vgg16_features, camera_c, camera_f, g_resnet, image_size):
+    def deform_mesh(self, mesh, shape_features, vgg16_features, camera_c, camera_f, g_resnet, image_size, g_truth, g_truth_normals):
         perception_feature = self.pool_perception_feature(mesh, vgg16_features, camera_c, camera_f, image_size)
-
         features = torch.concat([perception_feature, shape_features], 1)
         
         vertices = mesh.verts_list()[0]
@@ -190,16 +190,15 @@ class P2M(nn.Module):
             neighbours[i1] = neighbours[i1].union({i2,i3})
             neighbours[i2] = neighbours[i2].union({i1,i3})
             neighbours[i3] = neighbours[i3].union({i2,i1})
-        
         new_features, coordinates = g_resnet(neighbours, features)
         vertices_after = coordinates
         deformed_mesh = Meshes(verts=[coordinates], faces=[faces]).cuda()
+        #TODO : multiply by 0.1 if this is first deform block
+        laplacian_regularization_value =  laplacian_regularization(vertices_before, vertices_after, neighbours)
+        loss = p2m_loss(vertices_after, g_truth,g_truth_normals, neighbours, laplacian_regularization_value)
+        return deformed_mesh, new_features, neighbours, loss
 
-        laplacian_regularization_value = laplacian_regularization(vertices_before, vertices_after, neighbours)
-        
-        return deformed_mesh, new_features, neighbours, laplacian_regularization_value
-
-    def forward(self, image):
+    def forward(self, image, g_truth, g_truth_normals):
         camera_c = self.camera_c
         camera_f = self.camera_f
 
@@ -217,12 +216,12 @@ class P2M(nn.Module):
         # Intial shape features are just coordinates (dimension 3)
         shape_features = mesh.verts_list()[0]
 
-        mesh, shape_features, _, laplacian_regularization_value_1 = self.deform_mesh(mesh, shape_features, vgg16_features, camera_c, camera_f, self.g_resnet1, image_size)
+        mesh, shape_features, _, loss_1 = self.deform_mesh(mesh, shape_features, vgg16_features, camera_c, camera_f, self.g_resnet1, image_size, g_truth, g_truth_normals)
         mesh, shape_features = self.unpool_graph(mesh, shape_features)
 
-        mesh, shape_features, _, laplacian_regularization_value_2 = self.deform_mesh(mesh, shape_features, vgg16_features, camera_c, camera_f, self.g_resnet2, image_size)
+        mesh, shape_features, _, loss_2 = self.deform_mesh(mesh, shape_features, vgg16_features, camera_c, camera_f, self.g_resnet2, image_size, g_truth, g_truth_normals)
         mesh, shape_features = self.unpool_graph(mesh, shape_features)
 
-        mesh, _ , neighbours, laplacian_regularization_value_3 = self.deform_mesh(mesh, shape_features, vgg16_features, camera_c, camera_f, self.g_resnet3, image_size)
+        mesh, _ , neighbours, loss_3 = self.deform_mesh(mesh, shape_features, vgg16_features, camera_c, camera_f, self.g_resnet3, image_size, g_truth, g_truth_normals)
 
-        return mesh, neighbours, (laplacian_regularization_value_1 + laplacian_regularization_value_2 + laplacian_regularization_value_3)
+        return mesh, neighbours,(loss_1 + loss_2  + loss_3) 

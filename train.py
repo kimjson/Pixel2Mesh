@@ -23,9 +23,7 @@ def train(dataloader, model, loss_function, optimizer):
         image, points, surface_normals = image.to(device), points.to(device), surface_normals.to(device)
 
         # Compute prediction error
-        predicted_mesh, neighbours, laplacian_regularization_value = model(image)
-        vertices = predicted_mesh.verts_padded()
-        loss = loss_function(vertices, points, surface_normals, neighbours, laplacian_regularization_value)
+        predicted_mesh, _, loss = model(image, points, surface_normals)
         # Backpropagation
         optimizer.zero_grad()
         loss.backward()
