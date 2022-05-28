@@ -25,7 +25,7 @@ def train(dataloader, model, loss_function, optimizer):
         # Compute prediction error
         predicted_mesh, neighbours = model(image)
         vertices = predicted_mesh.verts_padded()
-        loss = loss_function(vertices, points, neighbours)
+        loss = loss_function(vertices, points, surface_normals, neighbours)
         # Backpropagation
         optimizer.zero_grad()
         loss.backward()

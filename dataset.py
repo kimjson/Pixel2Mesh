@@ -9,7 +9,7 @@ class ShapeNet(Dataset):
         # read list file
         with open(meta_file_path, 'r') as meta_file:
             # TODO: REMOVE SLICING!!!
-            self.dat_file_paths = meta_file.readlines()[:5]
+            self.dat_file_paths = meta_file.readlines()[:1]
             self.png_file_paths = self.dat_file_paths[:]
 
             for i, path in enumerate(self.dat_file_paths):
