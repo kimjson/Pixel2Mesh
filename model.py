@@ -1,3 +1,4 @@
+from turtle import Turtle
 import torch
 import torch.nn as nn
 from torchvision.models import vgg16
@@ -5,7 +6,7 @@ from pytorch3d.io.ply_io import load_ply
 from pytorch3d.structures import Meshes
 
 from g_resnet import GResNet
-from loss import p2m_loss, laplacian_regularization
+from loss import p2m_loss, laplacian_regularization, move_loss
 
 class P2M(nn.Module):
     def __init__(self, ellipsoid_path, camera_c, camera_f):
@@ -176,7 +177,7 @@ class P2M(nn.Module):
         
         return Meshes(verts=[vertices], faces=[newFaces]).cuda(), shape_features
 
-    def deform_mesh(self, mesh, shape_features, vgg16_features, camera_c, camera_f, g_resnet, image_size, g_truth, g_truth_normals):
+    def deform_mesh(self, mesh, shape_features, vgg16_features, camera_c, camera_f, g_resnet, image_size, g_truth, g_truth_normals, is_first= False):
         perception_feature = self.pool_perception_feature(mesh, vgg16_features, camera_c, camera_f, image_size)
         features = torch.concat([perception_feature, shape_features], 1)
         
@@ -190,14 +191,15 @@ class P2M(nn.Module):
             neighbours[i3] = neighbours[i3].union({i2,i1})
         new_features, coordinates = g_resnet(neighbours, features)
         deformed_mesh = Meshes(verts=[coordinates], faces=[faces]).cuda()
-
         vertices_before = torch.unsqueeze(vertices, 0)
         vertices_after = torch.unsqueeze(coordinates, 0)
-        # TODO : multiply by 0.1 if this is first deform block
-        # laplacian_regularization_value = 0.1 * laplacian_regularization(vertices_before, vertices_after, neighbours)
-        laplacian_regularization_value = laplacian_regularization(vertices_before, vertices_after, neighbours)
-        loss = p2m_loss(vertices_after, g_truth, g_truth_normals, neighbours, laplacian_regularization_value)
-
+        laplacian_regularization_value =  laplacian_regularization(vertices_before, vertices_after, neighbours)
+        move_loss_value = 0
+        if  is_first : 
+            laplacian_regularization_value*=0.1
+        else : 
+            move_loss_value += move_loss(vertices_before, vertices_after)
+        loss = p2m_loss(vertices_after, g_truth,g_truth_normals, neighbours, laplacian_regularization_value, move_loss_value)
         return deformed_mesh, new_features, neighbours, loss
 
     def forward(self, image, g_truth, g_truth_normals):
@@ -218,7 +220,7 @@ class P2M(nn.Module):
         # Intial shape features are just coordinates (dimension 3)
         shape_features = mesh.verts_list()[0]
 
-        mesh, shape_features, _, loss_1 = self.deform_mesh(mesh, shape_features, vgg16_features, camera_c, camera_f, self.g_resnet1, image_size, g_truth, g_truth_normals)
+        mesh, shape_features, _, loss_1 = self.deform_mesh(mesh, shape_features, vgg16_features, camera_c, camera_f, self.g_resnet1, image_size, g_truth, g_truth_normals, is_first = True)
         mesh, shape_features = self.unpool_graph(mesh, shape_features)
 
         mesh, shape_features, _, loss_2 = self.deform_mesh(mesh, shape_features, vgg16_features, camera_c, camera_f, self.g_resnet2, image_size, g_truth, g_truth_normals)

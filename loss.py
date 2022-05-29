@@ -1,10 +1,11 @@
 from unittest import result
 from pytorch3d.loss import chamfer_distance 
 from pytorch3d.ops import knn_points
+from torch.nn.functional import mse_loss
 import torch
 def p2m_loss (prediction, g_truth, g_truth_normals, neighbours, laplacian_regularization_value): 
     chamferloss, _ = chamfer_distance(prediction, g_truth)
-    loss = normal_loss(prediction, g_truth, g_truth_normals, neighbours) + chamferloss + edge_regularization(prediction, neighbours) + laplacian_regularization_value
+    loss = normal_loss(prediction, g_truth, g_truth_normals, neighbours)*0.5 + chamferloss*3000 + edge_regularization(prediction, neighbours)*300 + laplacian_regularization_value*1500 + move_loss*100
     return loss
 
 #TODO : normalize vectors
@@ -27,7 +28,7 @@ def edge_regularization(prediction,neighbours):
     for index, neighbour in enumerate(neighbours) : 
         for vert in neighbour : 
             result += torch.norm(prediction[vert] - prediction[index])**2
-    return result/2.0
+    return result/(2.0*neighbours.size()[0])
 def laplacian_regularization(vertices_before,vertices_after, neighbours) : 
     vertices_before = vertices_before[0]
     vertices_after = vertices_after[0]
@@ -40,3 +41,5 @@ def laplacian_regularization(vertices_before,vertices_after, neighbours) :
         delta_after =  vertices_after[index]-sum_after
         loss += torch.norm(delta_after - delta_before)**2
     return loss
+def move_loss(vertices_before, vertices_after):
+    return mse_loss(vertices_before, vertices_after)
