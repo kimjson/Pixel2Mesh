@@ -2,7 +2,7 @@ import torch
 from torch.utils.data import DataLoader
 from torchvision import transforms
 from torchinfo import summary
-
+import datetime
 from dataset import ShapeNet
 from model import P2M
 from loss import p2m_loss
@@ -50,10 +50,13 @@ if __name__ == "__main__":
     optimizer = torch.optim.Adam(model.parameters(), lr=3e-5, weight_decay=1e-5)
 
     epochs = 40
-    
+
+    time = datetime.datetime.now()
+    checkpoint_filename = time.strftime('%m-%d_%H:%M')
     for i in range(epochs):
         print(f"Epoch {i+1}\n-------------------------------")
         train(train_dataloader, model, p2m_loss, optimizer)
+        torch.save(model.state_dict(), f'checkpoints/{checkpoint_filename}.pth')
 
     print("Done!")
     

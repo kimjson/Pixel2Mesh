@@ -1,6 +1,8 @@
 ### Hand Crafted ###
 data/**
+checkpoints/**
 !data/initial_ellipsoid.ply
+
 
 ### Generated ###
 # Byte-compiled / optimized / DLL files
