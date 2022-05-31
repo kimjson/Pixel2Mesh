@@ -1,4 +1,5 @@
 from turtle import Turtle
+from numpy import NaN
 import torch
 import torch.nn as nn
 from torchvision.models import vgg16
@@ -13,7 +14,7 @@ class P2M(nn.Module):
         super(P2M, self).__init__()
 
         self.ellipsoid_path = ellipsoid_path
-
+        self.is_train = True
         self.vgg16 = vgg16(pretrained=True)
         self.vgg16.eval()
 
@@ -191,15 +192,17 @@ class P2M(nn.Module):
             neighbours[i3] = neighbours[i3].union({i2,i1})
         new_features, coordinates = g_resnet(neighbours, features)
         deformed_mesh = Meshes(verts=[coordinates], faces=[faces]).cuda()
-        vertices_before = torch.unsqueeze(vertices, 0)
-        vertices_after = torch.unsqueeze(coordinates, 0)
-        laplacian_regularization_value =  laplacian_regularization(vertices_before, vertices_after, neighbours)
-        move_loss_value = 0
-        if  is_first : 
-            laplacian_regularization_value*=0.1
-        else : 
-            move_loss_value += move_loss(vertices_before, vertices_after)
-        loss = p2m_loss(vertices_after, g_truth,g_truth_normals, neighbours, laplacian_regularization_value, move_loss_value)
+        loss = None
+        if self.is_train : 
+            vertices_before = torch.unsqueeze(vertices, 0)
+            vertices_after = torch.unsqueeze(coordinates, 0)
+            laplacian_regularization_value =  laplacian_regularization(vertices_before, vertices_after, neighbours)
+            move_loss_value = 0
+            if  is_first : 
+                laplacian_regularization_value*=0.1
+            else : 
+                move_loss_value += move_loss(vertices_before, vertices_after)
+            loss = p2m_loss(vertices_after, g_truth,g_truth_normals, neighbours, laplacian_regularization_value, move_loss_value)
         return deformed_mesh, new_features, neighbours, loss
 
     def forward(self, image, g_truth, g_truth_normals):

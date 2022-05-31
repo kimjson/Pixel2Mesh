@@ -1,5 +1,8 @@
+import enum
+from statistics import mode
 import torch
 from torch.utils.data import DataLoader
+from metrics import f_score
 from torchvision import transforms
 from torchinfo import summary
 import datetime
@@ -11,12 +14,26 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 
 # TODO: replace with command line parameters
 meta_file_path = "/root/Pixel2Mesh-reference/datasets/data/shapenet/meta/train_tf.txt"
+meta_file_path_test = "/root/Pixel2Mesh-reference/datasets/data/shapenet/meta/test_tf.txt"
+
 data_base_path = "/root/Pixel2Mesh-reference/datasets/data/shapenet/data_tf"
 ellipsoid_path = "/root/Pixel2Mesh/data/initial_ellipsoid.ply"
 camera_c = [112.0, 112.0]
 camera_f = [250.0, 250.0]
 
+def test(dataloader, model):
+    model.eval()
+    model.is_train = False
+    f1_score =0
+    for _,(image, points, surface_normals) in enumerate(dataloader):
+        predicted_mesh, _, _ = model(image, points, surface_normals)
+        prediction = predicted_mesh.verts_list()
+        f1_score += f_score(prediction,points)
+    return f1_score/(len(dataloader))
+
 def train(dataloader, model, loss_function, optimizer):
+    model.is_train= True
+    model.train()
     size = len(dataloader.dataset)
     model.train()
     for batch, (image, points, surface_normals) in enumerate(dataloader):
@@ -41,6 +58,8 @@ if __name__ == "__main__":
     ])
     train_data = ShapeNet(meta_file_path, data_base_path, transform)
     train_dataloader = DataLoader(train_data, batch_size=1)
+    validation_data = ShapeNet(meta_file_path_test, data_base_path, transform)
+    validation_dataloader = DataLoader(validation_data, batch_size=1)
 
     model = P2M(ellipsoid_path, camera_c, camera_f).to(device)
 
@@ -53,10 +72,15 @@ if __name__ == "__main__":
 
     time = datetime.datetime.now()
     checkpoint_filename = time.strftime('%m-%d_%H:%M')
+    f_score_best_value = 0
     for i in range(epochs):
         print(f"Epoch {i+1}\n-------------------------------")
         train(train_dataloader, model, p2m_loss, optimizer)
-        torch.save(model.state_dict(), f'checkpoints/{checkpoint_filename}.pth')
-
+        f_score_value = test(validation_dataloader, model)
+        if f_score_value>f_score_best_value :
+            f_score_best_value = f_score_value
+            torch.save(model.state_dict(), f'checkpoints/{checkpoint_filename}.pth')
+        print("f-score:" + f_score_value)
+    print("best f-score:" + f_score_best_value)
     print("Done!")
     
