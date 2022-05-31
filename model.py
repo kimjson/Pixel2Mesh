@@ -48,18 +48,18 @@ class P2M(nn.Module):
                 [camera_f[0], 0, camera_c[0]],
                 [0, camera_f[1], camera_c[1]],
                 [0, 0, 1],
-            ]),
+            ], device=torch.device('cuda')),
             torch.tensor([
                 [1, 0, 0, 0],
                 [0, 1, 0, 0],
                 [0, 0, 1, 0.8],
-            ])
-        ).to("cuda")
+            ], device=torch.device('cuda'))
+        )
         projection_matrix = projection_matrix.repeat(coordinates.shape[0], 1, 1)
 
         coordinates = torch.concat([
             coordinates,
-            torch.ones(coordinates.shape[0], 1).to("cuda")
+            torch.ones(coordinates.shape[0], 1, device=torch.device('cuda'))
         ], 1)
         coordinates = torch.reshape(coordinates, (coordinates.shape[0], coordinates.shape[1], 1))
 
@@ -132,7 +132,7 @@ class P2M(nn.Module):
         # TODO: concat with shape_features
         vertices = graph.verts_list()[0]
         vertices = torch.cat([vertices, shape_features], 1)
-        newFaces = torch.tensor([]).cuda()
+        newFaces = torch.tensor([], device=torch.device('cuda'))
         num_vertices = vertices.shape[0]
         vertex_table = -torch.ones([num_vertices, num_vertices], dtype=torch.long)
 
@@ -167,10 +167,10 @@ class P2M(nn.Module):
                 vertex_table[i3, i1] = i6
                 vertex_table[i1, i3] = i6
 
-            newFaces = torch.cat((newFaces, torch.tensor([[i1,i4,i6]]).cuda()),0)
-            newFaces = torch.cat((newFaces, torch.tensor([[i2,i4,i5]]).cuda()),0)
-            newFaces = torch.cat((newFaces, torch.tensor([[i3,i5,i6]]).cuda()),0)
-            newFaces = torch.cat((newFaces, torch.tensor([[i5,i4,i6]]).cuda()),0)
+            newFaces = torch.cat((newFaces, torch.tensor([[i1,i4,i6]], device=torch.device('cuda'))),0)
+            newFaces = torch.cat((newFaces, torch.tensor([[i2,i4,i5]], device=torch.device('cuda'))),0)
+            newFaces = torch.cat((newFaces, torch.tensor([[i3,i5,i6]], device=torch.device('cuda'))),0)
+            newFaces = torch.cat((newFaces, torch.tensor([[i5,i4,i6]], device=torch.device('cuda'))),0)
             
         shape_features = vertices[:, 3:]
         vertices = vertices[:, :3]

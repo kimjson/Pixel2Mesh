@@ -5,6 +5,7 @@ from torch.utils.data import DataLoader
 from torchvision import transforms
 from torchinfo import summary
 from tqdm.contrib import tenumerate
+from torch.profiler import profile, record_function, ProfilerActivity
 
 from metrics import f_score
 from dataset import ShapeNet
@@ -21,27 +22,30 @@ ellipsoid_path = "/root/Pixel2Mesh/data/initial_ellipsoid.ply"
 camera_c = [112.0, 112.0]
 camera_f = [250.0, 250.0]
 
+@torch.no_grad()
 def test(dataloader, model):
     model.eval()
     model.is_train = False
     f1_score =0
     for _,(image, points, surface_normals) in tenumerate(dataloader):
-        image, points, surface_normals = image.to(device), points.to(device), surface_normals.to(device)
-        with torch.no_grad():
-            predicted_mesh, _, __ = model(image, points, surface_normals)
-            prediction = predicted_mesh.verts_padded()
-            f1_score += f_score(prediction,points)
+        with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA], record_shapes=True) as prof:
+            with record_function("model_train"):
+                image, points, surface_normals = image.to(device), points.to(device), surface_normals.to(device)
+                predicted_mesh, _, __ = model(image, points, surface_normals)
+                prediction = predicted_mesh.verts_padded()
+                f1_score += f_score(prediction,points)
+
+        print(prof.key_averages().table(sort_by="cpu_time_total"))
+        # print(prof.key_averages().table(sort_by="cuda_time_total"))
+            
     return f1_score/(len(dataloader))
 
 def train(dataloader, model, optimizer):
     model.is_train= True
     model.train()
     size = len(dataloader.dataset)
-    model.train()
     for batch, (image, points, surface_normals) in tenumerate(dataloader):
         image, points, surface_normals = image.to(device), points.to(device), surface_normals.to(device)
-
-        # Compute prediction error
         predicted_mesh, _, loss = model(image, points, surface_normals)
         # Backpropagation
         optimizer.zero_grad()
