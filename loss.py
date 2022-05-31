@@ -3,7 +3,8 @@ from pytorch3d.loss import chamfer_distance
 from pytorch3d.ops import knn_points
 from torch.nn.functional import mse_loss, normalize
 import torch
-def p2m_loss (prediction, g_truth, g_truth_normals, neighbours, laplacian_regularization_value, move_loss_value): 
+
+def p2m_loss (prediction, g_truth, g_truth_normals, neighbours, laplacian_regularization_value, move_loss_value, is_logging = False): 
     chamferloss, _ = chamfer_distance(prediction, g_truth)
 
     chamfer_term = chamferloss*3000
@@ -14,11 +15,12 @@ def p2m_loss (prediction, g_truth, g_truth_normals, neighbours, laplacian_regula
     
     loss = chamfer_term + normal_term + laplacian_term + move_term + edge_term
 
-    print(f'chamfer_term: {chamfer_term * 100 / loss}%')
-    print(f'normal_term: {normal_term * 100 / loss}%')
-    print(f'laplacian_term: {laplacian_term * 100 / loss}%')
-    print(f'move_term: {move_term * 100 / loss}%')
-    print(f'edge_term: {edge_term * 100 / loss}%')
+    if is_logging:
+        print(f'chamfer_term: {chamfer_term * 100 / loss}%')
+        print(f'normal_term: {normal_term * 100 / loss}%')
+        print(f'laplacian_term: {laplacian_term * 100 / loss}%')
+        print(f'move_term: {move_term * 100 / loss}%')
+        print(f'edge_term: {edge_term * 100 / loss}%')
 
     return loss
 

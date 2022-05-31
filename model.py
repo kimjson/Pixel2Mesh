@@ -16,7 +16,6 @@ class P2M(nn.Module):
         self.ellipsoid_path = ellipsoid_path
         self.is_train = True
         self.vgg16 = vgg16(pretrained=True)
-        self.vgg16.eval()
 
         self.vgg16_conv3_3_layer = list(self.vgg16.features)[15]
         self.vgg16_conv4_3_layer = list(self.vgg16.features)[22]
@@ -210,6 +209,7 @@ class P2M(nn.Module):
         camera_f = self.camera_f
 
         _, __, image_size, ___ = image.shape
+        self.vgg16.eval()
         self.vgg16(image)
 
         vgg16_features = [
@@ -231,4 +231,6 @@ class P2M(nn.Module):
 
         mesh, _ , neighbours, loss_3 = self.deform_mesh(mesh, shape_features, vgg16_features, camera_c, camera_f, self.g_resnet3, image_size, g_truth, g_truth_normals)
 
-        return mesh, neighbours,(loss_1 + loss_2  + loss_3) 
+        loss = (loss_1 + loss_2  + loss_3) if self.is_train else None
+
+        return mesh, neighbours, loss

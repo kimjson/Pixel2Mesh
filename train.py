@@ -1,14 +1,14 @@
-import enum
-from statistics import mode
+import datetime
+
 import torch
 from torch.utils.data import DataLoader
-from metrics import f_score
 from torchvision import transforms
 from torchinfo import summary
-import datetime
+from tqdm.contrib import tenumerate
+
+from metrics import f_score
 from dataset import ShapeNet
 from model import P2M
-from loss import p2m_loss
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -25,18 +25,20 @@ def test(dataloader, model):
     model.eval()
     model.is_train = False
     f1_score =0
-    for _,(image, points, surface_normals) in enumerate(dataloader):
-        predicted_mesh, _, _ = model(image, points, surface_normals)
-        prediction = predicted_mesh.verts_list()
-        f1_score += f_score(prediction,points)
+    for _,(image, points, surface_normals) in tenumerate(dataloader):
+        image, points, surface_normals = image.to(device), points.to(device), surface_normals.to(device)
+        with torch.no_grad():
+            predicted_mesh, _, __ = model(image, points, surface_normals)
+            prediction = predicted_mesh.verts_padded()
+            f1_score += f_score(prediction,points)
     return f1_score/(len(dataloader))
 
-def train(dataloader, model, loss_function, optimizer):
+def train(dataloader, model, optimizer):
     model.is_train= True
     model.train()
     size = len(dataloader.dataset)
     model.train()
-    for batch, (image, points, surface_normals) in enumerate(dataloader):
+    for batch, (image, points, surface_normals) in tenumerate(dataloader):
         image, points, surface_normals = image.to(device), points.to(device), surface_normals.to(device)
 
         # Compute prediction error
@@ -75,12 +77,12 @@ if __name__ == "__main__":
     f_score_best_value = 0
     for i in range(epochs):
         print(f"Epoch {i+1}\n-------------------------------")
-        train(train_dataloader, model, p2m_loss, optimizer)
+        train(train_dataloader, model, optimizer)
         f_score_value = test(validation_dataloader, model)
         if f_score_value>f_score_best_value :
             f_score_best_value = f_score_value
             torch.save(model.state_dict(), f'checkpoints/{checkpoint_filename}.pth')
-        print("f-score:" + f_score_value)
-    print("best f-score:" + f_score_best_value)
+        print(f"f-score: {f_score_value}")
+    print(f"best f-score: {f_score_best_value}")
     print("Done!")
     
