@@ -200,7 +200,7 @@ class P2M(nn.Module):
         if self.is_train : 
             vertices_before = torch.unsqueeze(vertices, 0)
             vertices_after = torch.unsqueeze(coordinates, 0)
-            laplacian_regularization_value = laplacian_regularization(vertices_before, vertices_after, adjacency_matrix)
+            laplacian_regularization_value = laplacian_regularization(vertices_before, vertices_after, adjacency_matrix, edges)
             move_loss_value = 0
             if  is_first : 
                 laplacian_regularization_value*=0.1

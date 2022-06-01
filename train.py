@@ -40,11 +40,14 @@ def train(dataloader, model, optimizer):
     size = len(dataloader.dataset)
     for batch, (image, points, surface_normals) in tenumerate(dataloader):
         image, points, surface_normals = image.to(device), points.to(device), surface_normals.to(device)
-        predicted_mesh, loss = model(image, points, surface_normals)
-        # Backpropagation
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
+        with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA], record_shapes=True) as prof:
+            predicted_mesh, loss = model(image, points, surface_normals)
+            # Backpropagation
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+
+        print(prof.key_averages().table(sort_by="cpu_time_total"))
 
         if batch % 10 == 0:
             loss, current = loss.item(), batch * len(image)

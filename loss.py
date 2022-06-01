@@ -58,17 +58,31 @@ def edge_regularization(prediction, edges):
     edge_vectors = from_vertices - to_vertices
     return (edge_vectors.norm(dim=0) ** 2).sum() / prediction.size(0)
 
-def laplacian_regularization(vertices_before, vertices_after, adjacency_matrix):
-    vertices_before = vertices_before[0]
-    vertices_after = vertices_after[0]
-    loss = 0
-    for index, neighbour in enumerate(adjacency_matrix):
-        neighbour_size = neighbour.count_nonzero()
-        sum_before = torch.sum(vertices_before[neighbour]) / neighbour_size
-        delta_before = vertices_before[index] - sum_before
-        sum_after = torch.sum(vertices_after[neighbour]) / neighbour_size
-        delta_after =  vertices_after[index]-sum_after
-        loss += torch.norm(delta_after - delta_before)**2
-    return loss / adjacency_matrix.size(0)
+def laplacian_regularization(vertices_before, vertices_after, adjacency_matrix, edges):
+    with record_function("laplacian_regularization2"):
+        vertices_before = vertices_before[0]
+        vertices_after = vertices_after[0]
+
+        num_vertices, num_coordinates = vertices_before.shape
+        num_neighbors = adjacency_matrix.count_nonzero(dim=1).repeat(3, 1).T
+        neighbors_shape = (num_vertices, num_vertices, num_coordinates)
+        
+        neighbors_before = torch.zeros(neighbors_shape, device=torch.device('cuda'))
+        neighbors_before[edges[:, 0], edges[:, 1]] = vertices_before[edges[:, 1]]
+        neighbors_before[edges[:, 1], edges[:, 0]] = vertices_before[edges[:, 0]]
+        sum_before = neighbors_before.sum(dim=1)
+        delta_before = vertices_before - sum_before / num_neighbors
+
+        neighbors_after = torch.zeros(neighbors_shape, device=torch.device('cuda'))
+        neighbors_after[edges[:, 0], edges[:, 1]] = vertices_after[edges[:, 1]]
+        neighbors_after[edges[:, 1], edges[:, 0]] = vertices_after[edges[:, 0]]
+        sum_after = neighbors_after.sum(dim=1)
+        delta_after = vertices_after - sum_after / num_neighbors
+
+        result = torch.norm(delta_after - delta_before) ** 2
+        result = result.mean()
+
+        return result
+
 def move_loss(vertices_before, vertices_after):
     return mse_loss(vertices_before, vertices_after)
