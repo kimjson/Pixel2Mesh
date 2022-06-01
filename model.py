@@ -188,41 +188,25 @@ class P2M(nn.Module):
         vertices = mesh.verts_list()[0]
         faces = mesh.faces_list()[0]
         edges = mesh.edges_packed()
-        with record_function("P2M.deform_mesh.neighbors"):
-            neighbours = [set() for i in range(vertices.size()[0])]
-            for face in faces : 
-                i1,i2,i3 = face
-                neighbours[i1] = neighbours[i1].union({i2,i3})
-                neighbours[i2] = neighbours[i2].union({i1,i3})
-                neighbours[i3] = neighbours[i3].union({i2,i1})
 
-        # with record_function("P2M.deform_mesh.adjacency_matrix"):
-        #     adjacency_matrix = torch.zeros((vertices.shape[0], vertices.shape[0]), device=torch.device('cuda'))
-        #     for face in faces:
-        #         i1,i2,i3 = face
-        #         adjacency_matrix[i1, i2] = 1
-        #         adjacency_matrix[i2, i1] = 1
-        #         adjacency_matrix[i2, i3] = 1
-        #         adjacency_matrix[i3, i2] = 1
-        #         adjacency_matrix[i3, i1] = 1
-        #         adjacency_matrix[i1, i3] = 1
-
-        #     adjacency_matrix = adjacency_matrix.to(torch.bool)
-
+        adjacency_matrix = torch.zeros((vertices.shape[0], vertices.shape[0]), device=torch.device("cuda"))
+        adjacency_matrix[edges[:, 0], edges[:, 1]] = 1
+        adjacency_matrix = adjacency_matrix.to(torch.bool)
+        
         new_features, coordinates = g_resnet(edges, features)
         deformed_mesh = Meshes(verts=[coordinates], faces=[faces]).cuda()
         loss = None
         if self.is_train : 
             vertices_before = torch.unsqueeze(vertices, 0)
             vertices_after = torch.unsqueeze(coordinates, 0)
-            laplacian_regularization_value =  laplacian_regularization(vertices_before, vertices_after, neighbours)
+            laplacian_regularization_value = laplacian_regularization(vertices_before, vertices_after, adjacency_matrix)
             move_loss_value = 0
             if  is_first : 
                 laplacian_regularization_value*=0.1
             else : 
                 move_loss_value += move_loss(vertices_before, vertices_after)
-            loss = p2m_loss(vertices_after, g_truth,g_truth_normals, neighbours, laplacian_regularization_value, move_loss_value)
-        return deformed_mesh, new_features, neighbours, loss
+            loss = p2m_loss(vertices_after, g_truth,g_truth_normals, adjacency_matrix, laplacian_regularization_value, move_loss_value)
+        return deformed_mesh, new_features, loss
 
     def forward(self, image, g_truth, g_truth_normals):
         camera_c = self.camera_c
@@ -243,14 +227,14 @@ class P2M(nn.Module):
         # Intial shape features are just coordinates (dimension 3)
         shape_features = mesh.verts_list()[0]
 
-        mesh, shape_features, _, loss_1 = self.deform_mesh(mesh, shape_features, vgg16_features, camera_c, camera_f, self.g_resnet1, image_size, g_truth, g_truth_normals, is_first = True)
+        mesh, shape_features, loss_1 = self.deform_mesh(mesh, shape_features, vgg16_features, camera_c, camera_f, self.g_resnet1, image_size, g_truth, g_truth_normals, is_first = True)
         mesh, shape_features = self.subdivide_meshes(mesh, shape_features)
 
-        mesh, shape_features, _, loss_2 = self.deform_mesh(mesh, shape_features, vgg16_features, camera_c, camera_f, self.g_resnet2, image_size, g_truth, g_truth_normals)
+        mesh, shape_features, loss_2 = self.deform_mesh(mesh, shape_features, vgg16_features, camera_c, camera_f, self.g_resnet2, image_size, g_truth, g_truth_normals)
         mesh, shape_features = self.subdivide_meshes(mesh, shape_features)
 
-        mesh, _ , neighbours, loss_3 = self.deform_mesh(mesh, shape_features, vgg16_features, camera_c, camera_f, self.g_resnet3, image_size, g_truth, g_truth_normals)
+        mesh, _, loss_3 = self.deform_mesh(mesh, shape_features, vgg16_features, camera_c, camera_f, self.g_resnet3, image_size, g_truth, g_truth_normals)
 
         loss = (loss_1 + loss_2  + loss_3) if self.is_train else None
 
-        return mesh, neighbours, loss
+        return mesh, loss

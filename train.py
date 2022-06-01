@@ -30,7 +30,7 @@ def test(dataloader, model):
     for _,(image, points, surface_normals) in tenumerate(dataloader):
         image, points, surface_normals = image.to(device), points.to(device), surface_normals.to(device)
         with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA], record_shapes=True) as prof:
-            predicted_mesh, _, __ = model(image, points, surface_normals)
+            predicted_mesh, _ = model(image, points, surface_normals)
         print(prof.key_averages().table(sort_by="cpu_time_total"))
         prediction = predicted_mesh.verts_padded()
         f1_score += f_score(prediction,points)
@@ -42,7 +42,7 @@ def train(dataloader, model, optimizer):
     size = len(dataloader.dataset)
     for batch, (image, points, surface_normals) in tenumerate(dataloader):
         image, points, surface_normals = image.to(device), points.to(device), surface_normals.to(device)
-        predicted_mesh, _, loss = model(image, points, surface_normals)
+        predicted_mesh, loss = model(image, points, surface_normals)
         # Backpropagation
         optimizer.zero_grad()
         loss.backward()
