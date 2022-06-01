@@ -3,12 +3,13 @@ from pytorch3d.loss import chamfer_distance
 from pytorch3d.ops import knn_points
 from torch.nn.functional import mse_loss, normalize
 import torch
+from torch.profiler import record_function
 
-def p2m_loss (prediction, g_truth, g_truth_normals, adjacency_matrix, laplacian_regularization_value, move_loss_value, is_logging = False): 
+def p2m_loss(prediction, g_truth, g_truth_normals, adjacency_matrix, laplacian_regularization_value, move_loss_value, edges, is_logging = False): 
     chamferloss, _ = chamfer_distance(prediction, g_truth)
 
     chamfer_term = chamferloss*3000
-    normal_term = normal_loss(prediction, g_truth, g_truth_normals, adjacency_matrix)*0.5
+    normal_term = normal_loss(prediction, g_truth, g_truth_normals, adjacency_matrix, edges)*0.5
     laplacian_term = laplacian_regularization_value*1500
     move_term = move_loss_value*100
     edge_term = edge_regularization(prediction, adjacency_matrix)*300
@@ -24,8 +25,7 @@ def p2m_loss (prediction, g_truth, g_truth_normals, adjacency_matrix, laplacian_
 
     return loss
 
-#TODO : normalize vectors
-def normal_loss(prediction, g_truth, g_truth_normals, adjacency_matrix):
+def normal_loss(prediction, g_truth, g_truth_normals, adjacency_matrix, edges):
     nn_indices = knn_points(prediction, g_truth, return_nn = True).idx
     nn_indices = nn_indices[0]
     prediction = prediction[0]
@@ -34,26 +34,29 @@ def normal_loss(prediction, g_truth, g_truth_normals, adjacency_matrix):
 
     g_truth_normals = normalize(g_truth_normals[0], eps=epsilon)
     result = 0
-    max_edge_length = 0
-    for index, neighbour in enumerate(adjacency_matrix) : 
-        neighbour = neighbour.nonzero().flatten()
-        surface_normal = g_truth_normals[nn_indices[index].item()]
-        for vert in neighbour : 
-            edge = prediction[vert] - prediction[index]
-            edge_length = edge.norm()
-            if edge_length > max_edge_length:
-                max_edge_length = edge_length
-            result += torch.dot(edge, surface_normal)
-    return abs(result / max(epsilon, max_edge_length))
+    max_edge_length_value = max_edge_length(prediction, edges)
 
-def edge_regularization(prediction, adjacency_matrix):
-    result = 0
-    prediction = prediction[0]
     for index, neighbour in enumerate(adjacency_matrix) : 
-        neighbour = neighbour.nonzero().flatten()
-        for vert in neighbour : 
-            result += torch.norm(prediction[vert] - prediction[index])**2
-    return result/(2.0*len(adjacency_matrix))
+        neighbour_vertices = prediction[neighbour]
+        neighbor_edges = neighbour_vertices - prediction[index].repeat(neighbour_vertices.size(0), 1)
+        surface_normal = g_truth_normals[nn_indices[index]]
+
+        result = (neighbor_edges @ surface_normal.T).sum()
+
+    return abs(result / max(epsilon, max_edge_length_value))
+
+
+def max_edge_length(vertices, edges):
+    from_vertices = vertices[edges[:, 0]]
+    to_vertices = vertices[edges[:, 1]]
+    edge_vectors = from_vertices - to_vertices
+    return (edge_vectors.norm(dim=0)).max()
+
+def edge_regularization(prediction, edges):
+    from_vertices = prediction[0][edges[:, 0]]
+    to_vertices = prediction[0][edges[:, 1]]
+    edge_vectors = from_vertices - to_vertices
+    return (edge_vectors.norm(dim=0) ** 2).sum() / (2.0 * prediction.size(0))
 
 def laplacian_regularization(vertices_before, vertices_after, adjacency_matrix):
     vertices_before = vertices_before[0]

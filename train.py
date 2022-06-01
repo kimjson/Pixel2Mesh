@@ -29,9 +29,7 @@ def test(dataloader, model):
     f1_score = 0
     for _,(image, points, surface_normals) in tenumerate(dataloader):
         image, points, surface_normals = image.to(device), points.to(device), surface_normals.to(device)
-        with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA], record_shapes=True) as prof:
-            predicted_mesh, _ = model(image, points, surface_normals)
-        print(prof.key_averages().table(sort_by="cpu_time_total"))
+        predicted_mesh, _ = model(image, points, surface_normals)
         prediction = predicted_mesh.verts_padded()
         f1_score += f_score(prediction,points)
     return f1_score/(len(dataloader))

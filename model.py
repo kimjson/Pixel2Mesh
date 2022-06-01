@@ -191,6 +191,7 @@ class P2M(nn.Module):
 
         adjacency_matrix = torch.zeros((vertices.shape[0], vertices.shape[0]), device=torch.device("cuda"))
         adjacency_matrix[edges[:, 0], edges[:, 1]] = 1
+        adjacency_matrix[edges[:, 1], edges[:, 0]] = 1
         adjacency_matrix = adjacency_matrix.to(torch.bool)
         
         new_features, coordinates = g_resnet(edges, features)
@@ -205,7 +206,7 @@ class P2M(nn.Module):
                 laplacian_regularization_value*=0.1
             else : 
                 move_loss_value += move_loss(vertices_before, vertices_after)
-            loss = p2m_loss(vertices_after, g_truth,g_truth_normals, adjacency_matrix, laplacian_regularization_value, move_loss_value)
+            loss = p2m_loss(vertices_after, g_truth,g_truth_normals, adjacency_matrix, laplacian_regularization_value, move_loss_value, edges)
         return deformed_mesh, new_features, loss
 
     def forward(self, image, g_truth, g_truth_normals):
