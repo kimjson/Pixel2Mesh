@@ -56,7 +56,7 @@ def edge_regularization(prediction, edges):
     from_vertices = prediction[0][edges[:, 0]]
     to_vertices = prediction[0][edges[:, 1]]
     edge_vectors = from_vertices - to_vertices
-    return (edge_vectors.norm(dim=0) ** 2).sum() / (2.0 * prediction.size(0))
+    return (edge_vectors.norm(dim=0) ** 2).sum() / prediction.size(0)
 
 def laplacian_regularization(vertices_before, vertices_after, adjacency_matrix):
     vertices_before = vertices_before[0]
