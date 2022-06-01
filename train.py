@@ -36,19 +36,27 @@ def test(dataloader, model):
 def train(dataloader, model, optimizer):
     model.is_train= True
     model.train()
+
     size = len(dataloader.dataset)
+    loss_temp = 0.0
+
     for batch, (image, points, surface_normals) in tenumerate(dataloader):
         image, points, surface_normals = image.to(device), points.to(device), surface_normals.to(device)
 
         predicted_mesh, loss = model(image, points, surface_normals)
+
         # Backpropagation
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
 
-        if batch % 10 == 0:
-            loss, current = loss.item(), batch * len(image)
-            print(f"loss: {loss:>7f}  [{current:>5d}/{size:>5d}]")
+        loss_temp += loss.item()
+
+        if batch % 500 == 499:
+            loss_temp /= 500.0
+            current = batch * len(image)
+            print(f"loss: {loss_temp:>7f}  [{current:>5d}/{size:>5d}]")
+            loss_temp = 0.0
 
 def train_loop(dataloader, model, optimizer, epoch_start, epoch_end, checkpoint_filename):
     f_score_best_value = 0
@@ -56,10 +64,11 @@ def train_loop(dataloader, model, optimizer, epoch_start, epoch_end, checkpoint_
         print(f"Epoch {i+1}\n-------------------------------")
         train(train_dataloader, model, optimizer)
         f_score_value = test(validation_dataloader, model)
-        if f_score_value>f_score_best_value :
+        if f_score_value > f_score_best_value :
             f_score_best_value = f_score_value
             torch.save(model.state_dict(), f'checkpoints/{checkpoint_filename}.pth')
         print(f"f-score: {f_score_value}")
+
     print(f"best f-score: {f_score_best_value}")
 
 if __name__ == "__main__":
@@ -85,17 +94,6 @@ if __name__ == "__main__":
         parameter_group['lr'] = 1e-5
 
     train_loop(train_dataloader, model, optimizer, 40, 50, checkpoint_filename)
-
-
-    f_score_best_value = 0
-    for i in range(epochs):
-        print(f"Epoch {i+1}\n-------------------------------")
-        train(train_dataloader, model, optimizer)
-        f_score_value = test(validation_dataloader, model)
-        if f_score_value>f_score_best_value :
-            f_score_best_value = f_score_value
-            torch.save(model.state_dict(), f'checkpoints/{checkpoint_filename}.pth')
-        print(f"f-score: {f_score_value}")
-    print(f"best f-score: {f_score_best_value}")
+    
     print("Done!")
     
