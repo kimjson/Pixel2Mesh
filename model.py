@@ -5,6 +5,8 @@ import torch.nn as nn
 from torchvision.models import vgg16
 from pytorch3d.io.ply_io import load_ply
 from pytorch3d.structures import Meshes
+from pytorch3d.ops import SubdivideMeshes
+from torch.profiler import record_function
 
 from g_resnet import GResNet
 from loss import p2m_loss, laplacian_regularization, move_loss
@@ -37,6 +39,8 @@ class P2M(nn.Module):
         self.g_resnet1 = GResNet(1283, 128).to("cuda")
         self.g_resnet2 = GResNet(1408, 128).to("cuda")
         self.g_resnet3 = GResNet(1408, 128).to("cuda")
+
+        self.subdivide_meshes = SubdivideMeshes()
 
         self.camera_c = camera_c
         self.camera_f = camera_f
@@ -128,54 +132,54 @@ class P2M(nn.Module):
         return Meshes(verts=[vertices], faces=[faces]).cuda()
 
     def unpool_graph(self, graph, shape_features):
-        faces = graph.faces_list()[0]
-        # TODO: concat with shape_features
-        vertices = graph.verts_list()[0]
-        vertices = torch.cat([vertices, shape_features], 1)
-        newFaces = torch.tensor([], device=torch.device('cuda'))
-        num_vertices = vertices.shape[0]
-        vertex_table = -torch.ones([num_vertices, num_vertices], dtype=torch.long)
+        with record_function("P2M.unpool_graph"):
+            faces = graph.faces_list()[0]
+            vertices = graph.verts_list()[0]
+            vertices = torch.cat([vertices, shape_features], 1)
+            newFaces = torch.tensor([], device=torch.device('cuda'))
+            num_vertices = vertices.shape[0]
+            vertex_table = -torch.ones([num_vertices, num_vertices], dtype=torch.long)
 
-        for face in faces :
-            i1,i2,i3 = face
-            v1 = vertices[i1]
-            v2 = vertices[i2]
-            v3 = vertices[i3]
+            for face in faces :
+                i1,i2,i3 = face
+                v1 = vertices[i1]
+                v2 = vertices[i2]
+                v3 = vertices[i3]
 
-            i4 = vertex_table[i1, i2]
-            i5 = vertex_table[i2, i3]
-            i6 = vertex_table[i3, i1]
-            v4 = (v1 + v2)/2
-            v5 = (v2 + v3)/2
-            v6 = (v3 + v1)/2
+                i4 = vertex_table[i1, i2]
+                i5 = vertex_table[i2, i3]
+                i6 = vertex_table[i3, i1]
+                v4 = (v1 + v2)/2
+                v5 = (v2 + v3)/2
+                v6 = (v3 + v1)/2
 
-            if i4 == -1:
-                vertices = torch.cat([vertices, torch.unsqueeze(v4,0)],0)
-                i4 = vertices.shape[0] - 1
-                vertex_table[i1, i2] = i4
-                vertex_table[i2, i1] = i4
+                if i4 == -1:
+                    vertices = torch.cat([vertices, torch.unsqueeze(v4,0)],0)
+                    i4 = vertices.shape[0] - 1
+                    vertex_table[i1, i2] = i4
+                    vertex_table[i2, i1] = i4
 
-            if i5 == -1:
-                vertices = torch.cat([vertices, torch.unsqueeze(v5,0)],0)
-                i5 = vertices.shape[0] - 1
-                vertex_table[i2, i3] = i5
-                vertex_table[i3, i2] = i5
+                if i5 == -1:
+                    vertices = torch.cat([vertices, torch.unsqueeze(v5,0)],0)
+                    i5 = vertices.shape[0] - 1
+                    vertex_table[i2, i3] = i5
+                    vertex_table[i3, i2] = i5
 
-            if i6 == -1:
-                vertices = torch.cat([vertices, torch.unsqueeze(v6,0)],0)
-                i6 = vertices.shape[0] - 1
-                vertex_table[i3, i1] = i6
-                vertex_table[i1, i3] = i6
+                if i6 == -1:
+                    vertices = torch.cat([vertices, torch.unsqueeze(v6,0)],0)
+                    i6 = vertices.shape[0] - 1
+                    vertex_table[i3, i1] = i6
+                    vertex_table[i1, i3] = i6
 
-            newFaces = torch.cat((newFaces, torch.tensor([[i1,i4,i6]], device=torch.device('cuda'))),0)
-            newFaces = torch.cat((newFaces, torch.tensor([[i2,i4,i5]], device=torch.device('cuda'))),0)
-            newFaces = torch.cat((newFaces, torch.tensor([[i3,i5,i6]], device=torch.device('cuda'))),0)
-            newFaces = torch.cat((newFaces, torch.tensor([[i5,i4,i6]], device=torch.device('cuda'))),0)
+                newFaces = torch.cat((newFaces, torch.tensor([[i1,i4,i6]], device=torch.device('cuda'))),0)
+                newFaces = torch.cat((newFaces, torch.tensor([[i2,i4,i5]], device=torch.device('cuda'))),0)
+                newFaces = torch.cat((newFaces, torch.tensor([[i3,i5,i6]], device=torch.device('cuda'))),0)
+                newFaces = torch.cat((newFaces, torch.tensor([[i5,i4,i6]], device=torch.device('cuda'))),0)
+                
+            shape_features = vertices[:, 3:]
+            vertices = vertices[:, :3]
             
-        shape_features = vertices[:, 3:]
-        vertices = vertices[:, :3]
-        
-        return Meshes(verts=[vertices], faces=[newFaces]).cuda(), shape_features
+            return Meshes(verts=[vertices], faces=[newFaces]).cuda(), shape_features
 
     def deform_mesh(self, mesh, shape_features, vgg16_features, camera_c, camera_f, g_resnet, image_size, g_truth, g_truth_normals, is_first= False):
         perception_feature = self.pool_perception_feature(mesh, vgg16_features, camera_c, camera_f, image_size)
@@ -183,13 +187,29 @@ class P2M(nn.Module):
         
         vertices = mesh.verts_list()[0]
         faces = mesh.faces_list()[0]
-        neighbours = [set() for i in range(vertices.size()[0])]
-        for face in faces : 
-            i1,i2,i3 = face
-            neighbours[i1] = neighbours[i1].union({i2,i3})
-            neighbours[i2] = neighbours[i2].union({i1,i3})
-            neighbours[i3] = neighbours[i3].union({i2,i1})
-        new_features, coordinates = g_resnet(neighbours, features)
+        edges = mesh.edges_packed()
+        with record_function("P2M.deform_mesh.neighbors"):
+            neighbours = [set() for i in range(vertices.size()[0])]
+            for face in faces : 
+                i1,i2,i3 = face
+                neighbours[i1] = neighbours[i1].union({i2,i3})
+                neighbours[i2] = neighbours[i2].union({i1,i3})
+                neighbours[i3] = neighbours[i3].union({i2,i1})
+
+        # with record_function("P2M.deform_mesh.adjacency_matrix"):
+        #     adjacency_matrix = torch.zeros((vertices.shape[0], vertices.shape[0]), device=torch.device('cuda'))
+        #     for face in faces:
+        #         i1,i2,i3 = face
+        #         adjacency_matrix[i1, i2] = 1
+        #         adjacency_matrix[i2, i1] = 1
+        #         adjacency_matrix[i2, i3] = 1
+        #         adjacency_matrix[i3, i2] = 1
+        #         adjacency_matrix[i3, i1] = 1
+        #         adjacency_matrix[i1, i3] = 1
+
+        #     adjacency_matrix = adjacency_matrix.to(torch.bool)
+
+        new_features, coordinates = g_resnet(edges, features)
         deformed_mesh = Meshes(verts=[coordinates], faces=[faces]).cuda()
         loss = None
         if self.is_train : 
@@ -224,10 +244,10 @@ class P2M(nn.Module):
         shape_features = mesh.verts_list()[0]
 
         mesh, shape_features, _, loss_1 = self.deform_mesh(mesh, shape_features, vgg16_features, camera_c, camera_f, self.g_resnet1, image_size, g_truth, g_truth_normals, is_first = True)
-        mesh, shape_features = self.unpool_graph(mesh, shape_features)
+        mesh, shape_features = self.subdivide_meshes(mesh, shape_features)
 
         mesh, shape_features, _, loss_2 = self.deform_mesh(mesh, shape_features, vgg16_features, camera_c, camera_f, self.g_resnet2, image_size, g_truth, g_truth_normals)
-        mesh, shape_features = self.unpool_graph(mesh, shape_features)
+        mesh, shape_features = self.subdivide_meshes(mesh, shape_features)
 
         mesh, _ , neighbours, loss_3 = self.deform_mesh(mesh, shape_features, vgg16_features, camera_c, camera_f, self.g_resnet3, image_size, g_truth, g_truth_normals)
 

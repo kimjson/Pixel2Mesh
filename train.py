@@ -5,7 +5,7 @@ from torch.utils.data import DataLoader
 from torchvision import transforms
 from torchinfo import summary
 from tqdm.contrib import tenumerate
-from torch.profiler import profile, record_function, ProfilerActivity
+from torch.profiler import profile, ProfilerActivity
 
 from metrics import f_score
 from dataset import ShapeNet
@@ -26,18 +26,14 @@ camera_f = [250.0, 250.0]
 def test(dataloader, model):
     model.eval()
     model.is_train = False
-    f1_score =0
+    f1_score = 0
     for _,(image, points, surface_normals) in tenumerate(dataloader):
+        image, points, surface_normals = image.to(device), points.to(device), surface_normals.to(device)
         with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA], record_shapes=True) as prof:
-            with record_function("model_train"):
-                image, points, surface_normals = image.to(device), points.to(device), surface_normals.to(device)
-                predicted_mesh, _, __ = model(image, points, surface_normals)
-                prediction = predicted_mesh.verts_padded()
-                f1_score += f_score(prediction,points)
-
+            predicted_mesh, _, __ = model(image, points, surface_normals)
         print(prof.key_averages().table(sort_by="cpu_time_total"))
-        # print(prof.key_averages().table(sort_by="cuda_time_total"))
-            
+        prediction = predicted_mesh.verts_padded()
+        f1_score += f_score(prediction,points)
     return f1_score/(len(dataloader))
 
 def train(dataloader, model, optimizer):
@@ -63,9 +59,10 @@ if __name__ == "__main__":
         transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]) # ImageNet normalization
     ])
     train_data = ShapeNet(meta_file_path, data_base_path, transform)
-    train_dataloader = DataLoader(train_data, batch_size=1)
+    train_dataloader = DataLoader(train_data, batch_size=1, pin_memory=True)
+
     validation_data = ShapeNet(meta_file_path_test, data_base_path, transform)
-    validation_dataloader = DataLoader(validation_data, batch_size=1)
+    validation_dataloader = DataLoader(validation_data, batch_size=1, pin_memory=True)
 
     model = P2M(ellipsoid_path, camera_c, camera_f).to(device)
 
@@ -74,7 +71,8 @@ if __name__ == "__main__":
     # TODO: decrease lr to 1e-5 after 40 epochs
     optimizer = torch.optim.Adam(model.parameters(), lr=3e-5, weight_decay=1e-5)
 
-    epochs = 40
+    epochs = 1
+    # epochs = 40
 
     time = datetime.datetime.now()
     checkpoint_filename = time.strftime('%m-%d_%H:%M')
