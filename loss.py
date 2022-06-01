@@ -28,20 +28,21 @@ def p2m_loss(prediction, g_truth, g_truth_normals, adjacency_matrix, laplacian_r
 def normal_loss(prediction, g_truth, g_truth_normals, adjacency_matrix, edges):
     nn_indices = knn_points(prediction, g_truth, return_nn = True).idx
     nn_indices = nn_indices[0]
-    prediction = prediction[0]
+    vertices = prediction[0]
     
     epsilon = 1e-12
 
-    g_truth_normals = normalize(g_truth_normals[0], eps=epsilon)
-    result = 0
-    max_edge_length_value = max_edge_length(prediction, edges)
+    g_truth_normals = normalize(g_truth_normals[0], eps=epsilon)[nn_indices]
+    max_edge_length_value = max_edge_length(vertices, edges)
 
-    for index, neighbour in enumerate(adjacency_matrix) : 
-        neighbour_vertices = prediction[neighbour]
-        neighbor_edges = neighbour_vertices - prediction[index].repeat(neighbour_vertices.size(0), 1)
-        surface_normal = g_truth_normals[nn_indices[index]]
+    num_vertices, num_coordinates = vertices.shape
 
-        result = (neighbor_edges @ surface_normal.T).sum()
+    neighbors = torch.zeros((num_vertices, num_vertices, num_coordinates), device=torch.device('cuda'))
+    neighbors[edges[:, 0], edges[:, 1]] = vertices[edges[:, 1]] - vertices[edges[:, 0]]
+    neighbors[edges[:, 1], edges[:, 0]] = vertices[edges[:, 0]] - vertices[edges[:, 1]]
+
+    result = neighbors @ g_truth_normals.reshape((num_vertices, num_coordinates, 1))
+    result = result.sum(dim=1).sum()
 
     return abs(result / max(epsilon, max_edge_length_value))
 
@@ -59,30 +60,29 @@ def edge_regularization(prediction, edges):
     return (edge_vectors.norm(dim=0) ** 2).sum() / prediction.size(0)
 
 def laplacian_regularization(vertices_before, vertices_after, adjacency_matrix, edges):
-    with record_function("laplacian_regularization2"):
-        vertices_before = vertices_before[0]
-        vertices_after = vertices_after[0]
+    vertices_before = vertices_before[0]
+    vertices_after = vertices_after[0]
 
-        num_vertices, num_coordinates = vertices_before.shape
-        num_neighbors = adjacency_matrix.count_nonzero(dim=1).repeat(3, 1).T
-        neighbors_shape = (num_vertices, num_vertices, num_coordinates)
-        
-        neighbors_before = torch.zeros(neighbors_shape, device=torch.device('cuda'))
-        neighbors_before[edges[:, 0], edges[:, 1]] = vertices_before[edges[:, 1]]
-        neighbors_before[edges[:, 1], edges[:, 0]] = vertices_before[edges[:, 0]]
-        sum_before = neighbors_before.sum(dim=1)
-        delta_before = vertices_before - sum_before / num_neighbors
+    num_vertices, num_coordinates = vertices_before.shape
+    num_neighbors = adjacency_matrix.count_nonzero(dim=1).repeat(3, 1).T
+    neighbors_shape = (num_vertices, num_vertices, num_coordinates)
+    
+    neighbors_before = torch.zeros(neighbors_shape, device=torch.device('cuda'))
+    neighbors_before[edges[:, 0], edges[:, 1]] = vertices_before[edges[:, 1]]
+    neighbors_before[edges[:, 1], edges[:, 0]] = vertices_before[edges[:, 0]]
+    sum_before = neighbors_before.sum(dim=1)
+    delta_before = vertices_before - sum_before / num_neighbors
 
-        neighbors_after = torch.zeros(neighbors_shape, device=torch.device('cuda'))
-        neighbors_after[edges[:, 0], edges[:, 1]] = vertices_after[edges[:, 1]]
-        neighbors_after[edges[:, 1], edges[:, 0]] = vertices_after[edges[:, 0]]
-        sum_after = neighbors_after.sum(dim=1)
-        delta_after = vertices_after - sum_after / num_neighbors
+    neighbors_after = torch.zeros(neighbors_shape, device=torch.device('cuda'))
+    neighbors_after[edges[:, 0], edges[:, 1]] = vertices_after[edges[:, 1]]
+    neighbors_after[edges[:, 1], edges[:, 0]] = vertices_after[edges[:, 0]]
+    sum_after = neighbors_after.sum(dim=1)
+    delta_after = vertices_after - sum_after / num_neighbors
 
-        result = torch.norm(delta_after - delta_before) ** 2
-        result = result.mean()
+    result = torch.norm(delta_after - delta_before) ** 2
+    result = result.mean()
 
-        return result
+    return result
 
 def move_loss(vertices_before, vertices_after):
     return mse_loss(vertices_before, vertices_after)
