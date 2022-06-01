@@ -5,6 +5,7 @@ from torch.utils.data import DataLoader
 from torchvision import transforms
 from torchinfo import summary
 from tqdm.contrib import tenumerate
+from torch.profiler import profile, ProfilerActivity
 
 from metrics import f_score
 from dataset import ShapeNet
@@ -40,27 +41,18 @@ def train(dataloader, model, optimizer):
     for batch, (image, points, surface_normals) in tenumerate(dataloader):
         image, points, surface_normals = image.to(device), points.to(device), surface_normals.to(device)
 
-        predicted_mesh, loss = model(image, points, surface_normals)
-        # Backpropagation
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
+        with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA], record_shapes=True) as prof:
+            predicted_mesh, loss = model(image, points, surface_normals)
+            # Backpropagation
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+
+        print(prof.key_averages().table(sort_by="cpu_time_total"))
 
         if batch % 10 == 0:
             loss, current = loss.item(), batch * len(image)
             print(f"loss: {loss:>7f}  [{current:>5d}/{size:>5d}]")
-
-def train_loop(dataloader, model, optimizer, epoch_start, epoch_end, checkpoint_filename):
-    f_score_best_value = 0
-    for i in range(epoch_start, epoch_end):
-        print(f"Epoch {i+1}\n-------------------------------")
-        train(train_dataloader, model, optimizer)
-        f_score_value = test(validation_dataloader, model)
-        if f_score_value>f_score_best_value :
-            f_score_best_value = f_score_value
-            torch.save(model.state_dict(), f'checkpoints/{checkpoint_filename}.pth')
-        print(f"f-score: {f_score_value}")
-    print(f"best f-score: {f_score_best_value}")
 
 if __name__ == "__main__":
     transform = transforms.Compose([
@@ -76,17 +68,16 @@ if __name__ == "__main__":
 
     model = P2M(ellipsoid_path, camera_c, camera_f).to(device)
 
+    # summary(model, input_size=(1, 3, 224, 224))
+
+    # TODO: decrease lr to 1e-5 after 40 epochs
     optimizer = torch.optim.Adam(model.parameters(), lr=3e-5, weight_decay=1e-5)
+
+    epochs = 1
+    # epochs = 40
+
     time = datetime.datetime.now()
     checkpoint_filename = time.strftime('%m-%d_%H:%M')
-    train_loop(train_dataloader, model, optimizer, 0, 40, checkpoint_filename)
-
-    for parameter_group in optimizer.param_groups:
-        parameter_group['lr'] = 1e-5
-
-    train_loop(train_dataloader, model, optimizer, 40, 50, checkpoint_filename)
-
-
     f_score_best_value = 0
     for i in range(epochs):
         print(f"Epoch {i+1}\n-------------------------------")
