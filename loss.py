@@ -63,9 +63,10 @@ def laplacian_regularization(vertices_before, vertices_after, adjacency_matrix):
     vertices_after = vertices_after[0]
     loss = 0
     for index, neighbour in enumerate(adjacency_matrix):
-        sum_before = torch.sum(vertices_before[neighbour])
+        neighbour_size = neighbour.count_nonzero()
+        sum_before = torch.sum(vertices_before[neighbour]) / neighbour_size
         delta_before = vertices_before[index] - sum_before
-        sum_after = torch.sum(vertices_after[neighbour])
+        sum_after = torch.sum(vertices_after[neighbour]) / neighbour_size
         delta_after =  vertices_after[index]-sum_after
         loss += torch.norm(delta_after - delta_before)**2
     return loss / adjacency_matrix.size(0)
