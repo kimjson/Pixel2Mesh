@@ -214,7 +214,6 @@ class P2M(nn.Module):
         camera_f = self.camera_f
 
         _, __, image_size, ___ = image.shape
-        self.vgg16.eval()
         self.vgg16(image)
 
         vgg16_features = [
