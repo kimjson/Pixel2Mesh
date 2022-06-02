@@ -47,27 +47,22 @@ def train(dataloader, model, optimizer):
     loss_temp = 0.0
 
     for batch, (image, points, surface_normals, dat_path) in tenumerate(dataloader):
-        try:
-            image, points, surface_normals = image.to(device), points.to(device), surface_normals.to(device)
+        image, points, surface_normals = image.to(device), points.to(device), surface_normals.to(device)
 
-            predicted_mesh, loss = model(image, points, surface_normals)
+        predicted_mesh, loss = model(image, points, surface_normals)
 
-            # Backpropagation
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
+        # Backpropagation
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
 
-            loss_temp += loss.item()
+        loss_temp += loss.item()
 
-            if batch % 500 == 499:
-                loss_temp /= 500.0
-                current = batch * len(image)
-                print(f"loss: {loss_temp:>7f}  [{current:>5d}/{size:>5d}]")
-                loss_temp = 0.0
-        except:
-            print(f'{batch}th data ({dat_path}) failed')
-            traceback.print_exc()
-            raise 'TRAINING STOPPED'
+        if batch % 500 == 499:
+            loss_temp /= 500.0
+            current = batch * len(image)
+            print(f"loss: {loss_temp:>7f}  [{current:>5d}/{size:>5d}]")
+            loss_temp = 0.0
 
 def train_loop(dataloader, model, optimizer, epoch_start, epoch_end, checkpoint_filename):
     f_score_best_value = 0
