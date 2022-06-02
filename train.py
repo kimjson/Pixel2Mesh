@@ -4,10 +4,9 @@ import traceback
 import torch
 from torch.utils.data import DataLoader
 from torchvision import transforms
-from torchinfo import summary
 from tqdm.contrib import tenumerate
 
-from metrics import f_score
+from metrics import emd, f_score
 from dataset import ShapeNet
 from model import P2M
 
@@ -28,12 +27,17 @@ def test(dataloader, model):
     model.eval()
     model.is_train = False
     f1_score = 0
+    chamfer_distance=0
+    emd_val = 0
     for _,(image, points, surface_normals) in tenumerate(dataloader):
         image, points, surface_normals = image.to(device), points.to(device), surface_normals.to(device)
         predicted_mesh, _ = model(image, points, surface_normals)
         prediction = predicted_mesh.verts_padded()
         f1_score += f_score(prediction,points)
-    return f1_score/(len(dataloader))
+        chamferloss, _ = chamfer_distance(prediction, points)
+        chamfer_distance+=chamferloss
+        emd_val+=emd(prediction, points)
+    return f1_score/(len(dataloader)), chamfer_distance, emd_val
 
 def train(dataloader, model, optimizer):
     model.is_train= True
@@ -66,16 +70,21 @@ def train(dataloader, model, optimizer):
 
 def train_loop(dataloader, model, optimizer, epoch_start, epoch_end, checkpoint_filename):
     f_score_best_value = 0
+    chamfer_distance_chosen = 0
     for i in range(epoch_start, epoch_end):
         print(f"Epoch {i+1}\n-------------------------------")
         train(train_dataloader, model, optimizer)
-        f_score_value = test(validation_dataloader, model)
-        if f_score_value > f_score_best_value :
+        f_score_value, chamfer_distance, emd_value = test(validation_dataloader, model)
+        if f_score_value > f_score_best_value:
             f_score_best_value = f_score_value
+            chamfer_distance_chosen = chamfer_distance
+            emd_chosen = emd_value
             torch.save(model.state_dict(), f'checkpoints/{checkpoint_filename}.pth')
-        print(f"f-score: {f_score_value}")
+        print(f"f-score: {f_score_value}",f"chamfer distance: {chamfer_distance}", f"emd: {emd_value}")
 
     print(f"best f-score: {f_score_best_value}")
+    print(f"chosen chamfer distance: {chamfer_distance_chosen}")
+    print(f"chosen emd: {emd_chosen}")
 
 if __name__ == "__main__":
     transform = transforms.Compose([

@@ -1,5 +1,6 @@
 from pytorch3d.ops import knn_points
 import torch
+from emd import earth_mover_distance
 
 def f_score(prediction,g_truth, tau= 1e-4):
     true_positive = knn_points(prediction, g_truth).dists
@@ -13,3 +14,7 @@ def f_score(prediction,g_truth, tau= 1e-4):
     recall = true_positive/(false_negative + true_positive)
     f1_score = (recall*precision*2/(recall+precision)).item() if (precision + recall) > 0 else 0
     return f1_score
+
+def emd(prediction, g_truth) :
+    emd_value = earth_mover_distance(prediction, g_truth, transpose=False)
+    return emd_value
