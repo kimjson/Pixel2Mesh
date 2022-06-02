@@ -1,6 +1,6 @@
 from pytorch3d.ops import knn_points
 import torch
-from emd import earth_mover_distance
+from emd.emd import earth_mover_distance
 
 def f_score(prediction,g_truth, tau= 1e-4):
     true_positive = knn_points(prediction, g_truth).dists

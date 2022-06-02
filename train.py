@@ -29,7 +29,7 @@ def test(dataloader, model):
     f1_score = 0
     chamfer_distance=0
     emd_val = 0
-    for _,(image, points, surface_normals) in tenumerate(dataloader):
+    for _,(image, points, surface_normals, __) in tenumerate(dataloader):
         image, points, surface_normals = image.to(device), points.to(device), surface_normals.to(device)
         predicted_mesh, _ = model(image, points, surface_normals)
         prediction = predicted_mesh.verts_padded()
@@ -67,6 +67,7 @@ def train(dataloader, model, optimizer):
         except:
             print(f'{batch}th data ({dat_path}) failed')
             traceback.print_exc()
+            raise 'TRAINING STOPPED'
 
 def train_loop(dataloader, model, optimizer, epoch_start, epoch_end, checkpoint_filename):
     f_score_best_value = 0
