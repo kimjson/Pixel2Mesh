@@ -74,7 +74,6 @@ if __name__ == "__main__":
     optimizer = torch.optim.Adam(model.parameters(), lr=3e-5, weight_decay=1e-5)
 
     epochs = 1
-    # epochs = 40
 
     time = datetime.datetime.now()
     checkpoint_filename = time.strftime('%m-%d_%H:%M')

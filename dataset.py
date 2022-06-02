@@ -35,4 +35,4 @@ class ShapeNet(Dataset):
             points = torch.tensor(dat[:, :3])
             surface_normals = torch.tensor(dat[:, 3:])
 
-        return image, points, surface_normals
+        return image, points, surface_normals, dat_path

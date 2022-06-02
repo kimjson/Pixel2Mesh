@@ -1,4 +1,5 @@
 import datetime
+import traceback
 
 import torch
 from torch.utils.data import DataLoader
@@ -13,7 +14,8 @@ from model import P2M
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 # TODO: replace with command line parameters
-meta_file_path = "/root/Pixel2Mesh-reference/datasets/data/shapenet/meta/train_tf.txt"
+# meta_file_path = "/root/Pixel2Mesh-reference/datasets/data/shapenet/meta/train_tf.txt"
+meta_file_path = "/root/Pixel2Mesh-reference/datasets/data/shapenet/meta/train_list_cs492.txt"
 meta_file_path_test = "/root/Pixel2Mesh-reference/datasets/data/shapenet/meta/test_tf.txt"
 
 data_base_path = "/root/Pixel2Mesh-reference/datasets/data/shapenet/data_tf"
@@ -40,23 +42,27 @@ def train(dataloader, model, optimizer):
     size = len(dataloader.dataset)
     loss_temp = 0.0
 
-    for batch, (image, points, surface_normals) in tenumerate(dataloader):
-        image, points, surface_normals = image.to(device), points.to(device), surface_normals.to(device)
+    for batch, (image, points, surface_normals, dat_path) in tenumerate(dataloader):
+        try:
+            image, points, surface_normals = image.to(device), points.to(device), surface_normals.to(device)
 
-        predicted_mesh, loss = model(image, points, surface_normals)
+            predicted_mesh, loss = model(image, points, surface_normals)
 
-        # Backpropagation
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
+            # Backpropagation
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
 
-        loss_temp += loss.item()
+            loss_temp += loss.item()
 
-        if batch % 500 == 499:
-            loss_temp /= 500.0
-            current = batch * len(image)
-            print(f"loss: {loss_temp:>7f}  [{current:>5d}/{size:>5d}]")
-            loss_temp = 0.0
+            if batch % 500 == 499:
+                loss_temp /= 500.0
+                current = batch * len(image)
+                print(f"loss: {loss_temp:>7f}  [{current:>5d}/{size:>5d}]")
+                loss_temp = 0.0
+        except:
+            print(f'{batch}th data ({dat_path}) failed')
+            traceback.print_exc()
 
 def train_loop(dataloader, model, optimizer, epoch_start, epoch_end, checkpoint_filename):
     f_score_best_value = 0
