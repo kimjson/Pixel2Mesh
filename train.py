@@ -27,7 +27,7 @@ def test(dataloader, model):
     model.eval()
     model.is_train = False
     f1_score = 0
-    chamfer_distance=0
+    cd_val=0
     emd_val = 0
     for _,(image, points, surface_normals, __) in tenumerate(dataloader):
         image, points, surface_normals = image.to(device), points.to(device), surface_normals.to(device)
@@ -35,9 +35,9 @@ def test(dataloader, model):
         prediction = predicted_mesh.verts_padded()
         f1_score += f_score(prediction,points)
         chamferloss, _ = chamfer_distance(prediction, points)
-        chamfer_distance+=chamferloss
+        cd_val+=chamferloss
         emd_val+=emd(prediction, points)
-    return f1_score/(len(dataloader)), chamfer_distance, emd_val
+    return f1_score/(len(dataloader)), cd_val, emd_val
 
 def train(dataloader, model, optimizer):
     model.is_train= True
@@ -49,12 +49,15 @@ def train(dataloader, model, optimizer):
     for batch, (image, points, surface_normals, dat_path) in tenumerate(dataloader):
         image, points, surface_normals = image.to(device), points.to(device), surface_normals.to(device)
 
+        # Forward
         predicted_mesh, loss = model(image, points, surface_normals)
 
-        # Backpropagation
-        optimizer.zero_grad()
+        # Back-propagation
         loss.backward()
+
+        # Update parameters
         optimizer.step()
+        optimizer.zero_grad()
 
         loss_temp += loss.item()
 

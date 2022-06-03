@@ -70,7 +70,6 @@ if __name__ == "__main__":
 
     # summary(model, input_size=(1, 3, 224, 224))
 
-    # TODO: decrease lr to 1e-5 after 40 epochs
     optimizer = torch.optim.Adam(model.parameters(), lr=3e-5, weight_decay=1e-5)
 
     epochs = 1

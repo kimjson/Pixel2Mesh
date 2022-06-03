@@ -68,13 +68,10 @@ class P2M(nn.Module):
         coordinates = torch.reshape(coordinates, (coordinates.shape[0], coordinates.shape[1], 1))
 
         pixel_coordinates = torch.bmm(projection_matrix, coordinates)
-        pixel_coordinates = torch.reshape(pixel_coordinates, (pixel_coordinates.shape[0], pixel_coordinates.shape[1]))
+        s_values = pixel_coordinates[:, 2]
+        pixel_coordinates = pixel_coordinates.flatten(1, 2)
 
-        s_values = torch.reshape(pixel_coordinates[:, 2], (pixel_coordinates.shape[0], 1)).repeat(1, 3)
-
-        pixel_coordinates = pixel_coordinates / s_values
-
-        pixel_coordinates = pixel_coordinates[:, :-1]
+        pixel_coordinates = pixel_coordinates[:, :-1] / (s_values + (1e-12))
 
         return pixel_coordinates
 

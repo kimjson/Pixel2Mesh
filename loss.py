@@ -1,4 +1,3 @@
-from unittest import result
 from pytorch3d.loss import chamfer_distance 
 from pytorch3d.ops import knn_points
 from torch.nn.functional import mse_loss, normalize
@@ -29,22 +28,23 @@ def normal_loss(prediction, g_truth, g_truth_normals, adjacency_matrix, edges):
     nn_indices = knn_points(prediction, g_truth, return_nn = True).idx
     nn_indices = nn_indices[0]
     vertices = prediction[0]
-    
-    epsilon = 1e-12
 
-    g_truth_normals = normalize(g_truth_normals[0], eps=epsilon)[nn_indices]
     max_edge_length_value = max_edge_length(vertices, edges)
+    epsilon = torch.tensor(1e-12, device=torch.device("cuda"))
+    normalizer = torch.maximum(epsilon, max_edge_length_value)
 
     num_vertices, num_coordinates = vertices.shape
 
     neighbors = torch.zeros((num_vertices, num_vertices, num_coordinates), device=torch.device('cuda'))
-    neighbors[edges[:, 0], edges[:, 1]] = vertices[edges[:, 1]] - vertices[edges[:, 0]]
-    neighbors[edges[:, 1], edges[:, 0]] = vertices[edges[:, 0]] - vertices[edges[:, 1]]
+    neighbors[edges[:, 0], edges[:, 1]] = (vertices[edges[:, 1]] - vertices[edges[:, 0]]) / normalizer
+    neighbors[edges[:, 1], edges[:, 0]] = (vertices[edges[:, 0]] - vertices[edges[:, 1]]) / normalizer
+
+    g_truth_normals = normalize(g_truth_normals[0], eps=epsilon)[nn_indices]
 
     result = neighbors @ g_truth_normals.reshape((num_vertices, num_coordinates, 1))
-    result = result.sum(dim=1).sum()
+    result = torch.abs(result).sum(dim=1).mean()
 
-    return abs(result / max(epsilon, max_edge_length_value))
+    return result
 
 
 def max_edge_length(vertices, edges):

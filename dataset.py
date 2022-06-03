@@ -8,7 +8,6 @@ class ShapeNet(Dataset):
     def __init__(self, meta_file_path, data_base_path, transform=None):
         # read list file
         with open(meta_file_path, 'r') as meta_file:
-            # TODO: Sample uniformly across category - e.g. 1k models per category
             self.dat_file_paths = meta_file.readlines()
             self.png_file_paths = self.dat_file_paths[:]
 

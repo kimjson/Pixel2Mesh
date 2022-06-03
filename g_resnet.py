@@ -1,7 +1,15 @@
 from torch.nn import Module, ReLU, ModuleList
+from torch.nn.init import xavier_uniform_
 from pytorch3d.ops import GraphConv
 
 from graph_convolution import GraphConvolution
+
+def create_graph_conv(input_dim, output_dim):
+    graph_conv = GraphConv(input_dim, output_dim).to("cuda")
+    # xavier_uniform_(graph_conv.w0.weight, gain=0.1)
+    # xavier_uniform_(graph_conv.w1.weight, gain=0.1)
+
+    return graph_conv
 
 class GResNet(Module) : 
     def __init__(self, inputDim, outputDim):
@@ -9,7 +17,7 @@ class GResNet(Module) :
         
         self.inputDim = inputDim
         self.outputDim = outputDim
-        self.gcnlayers = [GraphConv(inputDim, outputDim).to("cuda")]+[GraphConv(outputDim, outputDim).to("cuda") for i in range(12)]+[GraphConv(outputDim, 3).to("cuda")]
+        self.gcnlayers = [create_graph_conv(inputDim, outputDim)]+[create_graph_conv(outputDim, outputDim) for i in range(12)]+[create_graph_conv(outputDim, 3)]
         self.gcnlayers = ModuleList(self.gcnlayers)
 
     def forward(self, edges, shape_features):
