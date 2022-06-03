@@ -1,5 +1,3 @@
-from turtle import Turtle
-from numpy import NaN
 import torch
 import torch.nn as nn
 from torchvision.models import vgg16
