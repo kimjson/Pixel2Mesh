@@ -24,7 +24,7 @@ If not installed, follow [miniconda installation guide](https://conda.io/project
 ## Setting Up the Environment
 
 ```sh
-conda create -f environment.yml
+conda env create -f environment.yml
 conda activate p2m
 ```
 
