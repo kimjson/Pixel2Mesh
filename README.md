@@ -25,7 +25,7 @@ If not installed, follow [miniconda installation guide](https://conda.io/project
 
 ```sh
 conda env create -f environment.yml
-conda activate p2m
+conda activate pytorch3d
 ```
 
 ## Our Experiment Setting
