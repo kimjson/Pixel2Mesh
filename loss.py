@@ -11,16 +11,14 @@ def p2m_loss(prediction, g_truth, g_truth_normals, adjacency_matrix, laplacian_r
     normal_term = normal_loss(prediction, g_truth, g_truth_normals, adjacency_matrix, edges)*0.5
     laplacian_term = laplacian_regularization_value*1500
     move_term = move_loss_value*100
-    edge_term = edge_regularization(prediction, adjacency_matrix)*300
     
-    loss = chamfer_term + normal_term + laplacian_term + move_term + edge_term
-
+    loss = chamfer_term + normal_term + laplacian_term + move_term
+    #edge loss is removed
     if is_logging:
         print(f'chamfer_term: {chamfer_term * 100 / loss}%')
         print(f'normal_term: {normal_term * 100 / loss}%')
         print(f'laplacian_term: {laplacian_term * 100 / loss}%')
         print(f'move_term: {move_term * 100 / loss}%')
-        print(f'edge_term: {edge_term * 100 / loss}%')
 
     return loss
 
