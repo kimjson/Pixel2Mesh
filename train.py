@@ -15,12 +15,7 @@ from model import P2M
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 # TODO: replace with command line parameters
-# meta_file_path = "/root/Pixel2Mesh-reference/datasets/data/shapenet/meta/train_tf.txt"
-meta_file_path = "/root/Pixel2Mesh-reference/datasets/data/shapenet/meta/train_list_cs492.txt"
-meta_file_path_test = "/root/Pixel2Mesh-reference/datasets/data/shapenet/meta/test_tf.txt"
-
-data_base_path = "/root/Pixel2Mesh-reference/datasets/data/shapenet/data_tf"
-ellipsoid_path = "/root/Pixel2Mesh/data/initial_ellipsoid.ply"
+ellipsoid_path = "./data/initial_ellipsoid.ply"
 camera_c = [112.0, 112.0]
 camera_f = [250.0, 250.0]
 
@@ -78,6 +73,7 @@ def train_loop(dataloader, model, optimizer, epoch_start, epoch_end, checkpoint_
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Run training script.')
 
+    parser.add_argument("--data-base", help="Path to base directory of dataset")
     parser.add_argument("--train-data", help="Path to meta file for train dataset")
     parser.add_argument("--test-data", help="Path to meta file for test dataset")
     parser.add_argument("--skip-train", help="If true, don't train and jump right into testing phase", action="store_true", default=False)
@@ -85,6 +81,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
+    data_base_path = args.data_base
     meta_file_path = args.train_data
     meta_file_path_test = args.test_data
     checkpoint_path = args.checkpoint
