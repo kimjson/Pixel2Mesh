@@ -5,6 +5,7 @@ import torch
 from torch.utils.data import DataLoader
 from torchvision import transforms
 from tqdm.contrib import tenumerate
+from pytorch3d.loss import chamfer_distance
 
 from metrics import emd, f_score
 from dataset import ShapeNet
@@ -68,22 +69,14 @@ def train(dataloader, model, optimizer):
             loss_temp = 0.0
 
 def train_loop(dataloader, model, optimizer, epoch_start, epoch_end, checkpoint_filename):
-    f_score_best_value = 0
-    chamfer_distance_chosen = 0
     for i in range(epoch_start, epoch_end):
         print(f"Epoch {i+1}\n-------------------------------")
         train(train_dataloader, model, optimizer)
-        f_score_value, chamfer_distance, emd_value = test(validation_dataloader, model)
-        if f_score_value > f_score_best_value:
-            f_score_best_value = f_score_value
-            chamfer_distance_chosen = chamfer_distance
-            emd_chosen = emd_value
-            torch.save(model.state_dict(), f'checkpoints/{checkpoint_filename}.pth')
-        print(f"f-score: {f_score_value}",f"chamfer distance: {chamfer_distance}", f"emd: {emd_value}")
+        torch.save(model.state_dict(), f'checkpoints/{checkpoint_filename}.pth')
 
-    print(f"best f-score: {f_score_best_value}")
-    print(f"chosen chamfer distance: {chamfer_distance_chosen}")
-    print(f"chosen emd: {emd_chosen}")
+    f_score_value, cd_value, emd_value = test(validation_dataloader, model)
+
+    print(f"f-score: {f_score_value}",f"chamfer distance: {cd_value}", f"emd: {emd_value}")
 
 if __name__ == "__main__":
     transform = transforms.Compose([

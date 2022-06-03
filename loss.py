@@ -1,4 +1,4 @@
-from pytorch3d.loss import chamfer_distance 
+from pytorch3d.loss import chamfer_distance
 from pytorch3d.ops import knn_points
 from torch.nn.functional import mse_loss, normalize
 import torch
