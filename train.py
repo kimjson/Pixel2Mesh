@@ -1,5 +1,6 @@
 import datetime
 import traceback
+import argparse
 
 import torch
 from torch.utils.data import DataLoader
@@ -74,11 +75,21 @@ def train_loop(dataloader, model, optimizer, epoch_start, epoch_end, checkpoint_
         train(train_dataloader, model, optimizer)
         torch.save(model.state_dict(), f'checkpoints/{checkpoint_filename}.pth')
 
-    f_score_value, cd_value, emd_value = test(validation_dataloader, model)
-
-    print(f"f-score: {f_score_value}",f"chamfer distance: {cd_value}", f"emd: {emd_value}")
-
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='Run training script.')
+
+    parser.add_argument("--train-data", help="Path to meta file for train dataset")
+    parser.add_argument("--test-data", help="Path to meta file for test dataset")
+    parser.add_argument("--skip-train", help="If true, don't train and jump right into testing phase", action="store_true", default=False)
+    parser.add_argument("--checkpoint", help="Path to checkpoint to load")
+
+    args = parser.parse_args()
+
+    meta_file_path = args.train_data
+    meta_file_path_test = args.test_data
+    checkpoint_path = args.checkpoint
+    skip_train = args.skip_train
+
     transform = transforms.Compose([
         transforms.Resize((224, 224)),
         transforms.ConvertImageDtype(torch.float),
@@ -92,15 +103,23 @@ if __name__ == "__main__":
 
     model = P2M(ellipsoid_path, camera_c, camera_f).to(device)
 
-    optimizer = torch.optim.Adam(model.parameters(), lr=3e-5, weight_decay=1e-5)
-    time = datetime.datetime.now()
-    checkpoint_filename = time.strftime('%m-%d_%H:%M')
-    train_loop(train_dataloader, model, optimizer, 0, 40, checkpoint_filename)
+    if checkpoint_path:
+        model.load_state_dict(torch.load(checkpoint_path))
+        print(f'Checkpoint loaded from {checkpoint_path}')
 
-    for parameter_group in optimizer.param_groups:
-        parameter_group['lr'] = 1e-5
+    if not skip_train:
+        optimizer = torch.optim.Adam(model.parameters(), lr=3e-5, weight_decay=1e-5)
+        time = datetime.datetime.now()
+        checkpoint_filename = time.strftime('%m-%d_%H:%M')
+        train_loop(train_dataloader, model, optimizer, 0, 40, checkpoint_filename)
 
-    train_loop(train_dataloader, model, optimizer, 40, 50, checkpoint_filename)
+        for parameter_group in optimizer.param_groups:
+            parameter_group['lr'] = 1e-5
+
+        train_loop(train_dataloader, model, optimizer, 40, 50, checkpoint_filename)
+
+    f_score_value, cd_value, emd_value = test(validation_dataloader, model)
+    print(f"f-score: {f_score_value}",f"chamfer distance: {cd_value}", f"emd: {emd_value}")
     
     print("Done!")
     
