@@ -24,17 +24,19 @@ def test(dataloader, model):
     model.eval()
     model.is_train = False
     f1_score = 0
+    f1_score_2 = 0
     cd_val=0
     emd_val = 0
     for _,(image, points, surface_normals, __) in tenumerate(dataloader):
         image, points, surface_normals = image.to(device), points.to(device), surface_normals.to(device)
         predicted_mesh, _ = model(image, points, surface_normals)
         prediction = predicted_mesh.verts_padded()
-        f1_score += f_score(prediction,points)
+        f1_score += f_score(prediction, points)
+        f1_score_2 += f_score(prediction, points, 2e-4)
         chamferloss, _ = chamfer_distance(prediction, points)
         cd_val+=chamferloss
         emd_val+=emd(prediction, points)
-    return f1_score/(len(dataloader)), cd_val, emd_val
+    return f1_score/(len(dataloader)), f1_score_2/(len(dataloader)), cd_val, emd_val
 
 def train(dataloader, model, optimizer):
     model.is_train= True
@@ -115,8 +117,8 @@ if __name__ == "__main__":
 
         train_loop(train_dataloader, model, optimizer, 40, 50, checkpoint_filename)
 
-    f_score_value, cd_value, emd_value = test(validation_dataloader, model)
-    print(f"f-score: {f_score_value}",f"chamfer distance: {cd_value}", f"emd: {emd_value}")
+    f_score_value, f_score_value_2, cd_value, emd_value = test(validation_dataloader, model)
+    print(f"f-score (tau): {f_score_value}", f"f-score (2-tau): {f_score_value_2}", f"chamfer distance: {cd_value}", f"emd: {emd_value}")
     
     print("Done!")
     
