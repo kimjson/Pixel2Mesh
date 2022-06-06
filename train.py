@@ -6,9 +6,8 @@ import torch
 from torch.utils.data import DataLoader
 from torchvision import transforms
 from tqdm.contrib import tenumerate
-from pytorch3d.loss import chamfer_distance
 
-from metrics import emd, f_score
+from metrics import cd, emd, f_score
 from dataset import ShapeNet
 from model import P2M
 
@@ -33,7 +32,7 @@ def test(dataloader, model):
         prediction = predicted_mesh.verts_padded()
         f1_score += f_score(prediction, points)
         f1_score_2 += f_score(prediction, points, 2e-4)
-        chamferloss, _ = chamfer_distance(prediction, points)
+        chamferloss, _ = cd(prediction, points)
         cd_val+=chamferloss
         emd_val+=emd(prediction, points)
     return f1_score/(len(dataloader)), f1_score_2/(len(dataloader)), cd_val, emd_val

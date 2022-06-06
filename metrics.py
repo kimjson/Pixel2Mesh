@@ -1,16 +1,17 @@
 from pytorch3d.ops import knn_points
+from pytorch3d.loss import chamfer_distance
 import torch
 from emd.emd import earth_mover_distance
 
 # TODO: cite https://stackoverflow.com/a/66635551
-def sample(values, num_samples):
+def sample(batch, num_samples):
     # Uniform weights for random draw
-    uniform = torch.ones(values.shape[0], device=torch.device('cuda'))
+    uniform = torch.ones(batch.size(1), device=torch.device('cuda'))
     indices = uniform.multinomial(num_samples, replacement=True)
-    return values[indices]
+    return batch[:, indices, :]
 
 def f_score(prediction, g_truth, tau = 1e-4):
-    num_samples = min(prediction.size(0), g_truth.size(0))
+    num_samples = min(prediction.size(1), g_truth.size(1))
     prediction = sample(prediction, num_samples)
     g_truth = sample(g_truth, num_samples)
 
@@ -27,9 +28,17 @@ def f_score(prediction, g_truth, tau = 1e-4):
     return f1_score
 
 def emd(prediction, g_truth):
-    num_samples = min(prediction.size(0), g_truth.size(0))
+    num_samples = min(prediction.size(1), g_truth.size(1))
     prediction = sample(prediction, num_samples)
     g_truth = sample(g_truth, num_samples)
     
     emd_value = earth_mover_distance(prediction, g_truth, transpose=False)
     return emd_value
+
+def cd(prediction, g_truth):
+    num_samples = min(prediction.size(1), g_truth.size(1))
+    prediction = sample(prediction, num_samples)
+    g_truth = sample(g_truth, num_samples)
+
+    cd_value = chamfer_distance(prediction, g_truth)
+    return cd_value
