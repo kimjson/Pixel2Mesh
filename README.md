@@ -24,13 +24,31 @@ If not installed, follow [miniconda installation guide](https://conda.io/project
 ## Setting Up the Environment
 
 ```sh
+git clone https://github.com/sundoufu/Pixel2Mesh.git
+cd Pixel2Mesh/
 conda env create -f environment.yml
 conda activate pytorch3d
 pip install git+https://github.com/sundoufu/PyTorchEMD.git
 ```
 
 ## Pretrained Checkpoints
-https://drive.google.com/drive/folders/1fXnnjMysnHf_vP3X6t2f3xv_9StFER_4?usp=sharing
+1. Download from https://drive.google.com/drive/folders/1fXnnjMysnHf_vP3X6t2f3xv_9StFER_4?usp=sharing
+2. Save them under Pixel2Mesh/checkpoints/
+
+## Dataset
+1. Download ShapeNetP2M/ from https://drive.google.com/drive/folders/131dH36qXCabym1JjSmEpSQZg4dmZVQid
+2. Save them under data/ (data/ShapeNetP2M)
+
+## Running the evaluation
+```sh
+# Inside Pixel2Mesh/
+chmod +x ./eval.sh
+# Run eval.sh in the background and redirect output logs to some files
+nohup ./eval.sh 1>eval.out 2>eval.err &
+
+# To see the progress real-time,
+tail -f eval.err
+```
 
 ## Our Experiment Setting
 
