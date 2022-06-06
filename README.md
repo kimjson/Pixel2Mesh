@@ -26,7 +26,11 @@ If not installed, follow [miniconda installation guide](https://conda.io/project
 ```sh
 conda env create -f environment.yml
 conda activate pytorch3d
+pip install git+https://github.com/sundoufu/PyTorchEMD.git
 ```
+
+## Pretrained Checkpoints
+https://drive.google.com/drive/folders/1fXnnjMysnHf_vP3X6t2f3xv_9StFER_4?usp=sharing
 
 ## Our Experiment Setting
 
